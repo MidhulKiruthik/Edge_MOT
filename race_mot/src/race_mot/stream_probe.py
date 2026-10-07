@@ -7,6 +7,7 @@ import math
 import re
 import statistics
 import time
+from configparser import ConfigParser
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -166,6 +167,82 @@ def probe_source(source: str, duration_sec: float) -> dict[str, object]:
             "Expected file end relies on reported frame count; unknown-length or early read failure cannot distinguish EOF from corruption.",
             "No reconnect is attempted; input drops cannot be inferred from decoder read counts.",
             "No frames are written to disk by this probe.",
+        ],
+    }
+
+
+def probe_mot_sequence(sequence_dir: Path, max_frames: int) -> dict[str, object]:
+    """Decode a bounded prefix of a MOT image sequence without retaining images."""
+    if max_frames < 1:
+        raise ValueError("frames must be at least 1")
+    info_path = sequence_dir / "seqinfo.ini"
+    if not info_path.is_file():
+        raise ValueError("MOT sequence is missing seqinfo.ini")
+    parser = ConfigParser()
+    parser.read(info_path, encoding="utf-8")
+    if not parser.has_section("Sequence"):
+        raise ValueError("seqinfo.ini is missing the [Sequence] section")
+    sequence = parser["Sequence"]
+    try:
+        sequence_length = int(sequence["seqLength"])
+        width = int(sequence["imWidth"])
+        height = int(sequence["imHeight"])
+        frame_rate = float(sequence["frameRate"])
+    except (KeyError, ValueError) as exc:
+        raise ValueError("seqinfo.ini has invalid sequence metadata") from exc
+    image_dir = sequence_dir / sequence.get("imDir", "img1")
+    extension = sequence.get("imExt", ".jpg")
+    if not image_dir.is_dir():
+        raise ValueError("MOT sequence is missing its image directory")
+    try:
+        import cv2  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise RuntimeError("OpenCV Python (cv2) is unavailable.") from exc
+
+    requested_frames = min(max_frames, sequence_length)
+    decode_times: list[float] = []
+    decoded_frames = 0
+    missing_frames: list[int] = []
+    dimension_mismatches: list[int] = []
+    started = time.perf_counter()
+    for index in range(1, requested_frames + 1):
+        path = image_dir / f"{index:06d}{extension}"
+        before = time.perf_counter()
+        frame = cv2.imread(str(path), cv2.IMREAD_COLOR)
+        decode_times.append(time.perf_counter() - before)
+        if frame is None:
+            missing_frames.append(index)
+            break
+        decoded_frames += 1
+        if frame.shape[:2] != (height, width):
+            dimension_mismatches.append(index)
+    elapsed = max(time.perf_counter() - started, 1e-9)
+    stop_reason = (
+        "read_failure" if missing_frames else
+        "expected_sequence_end" if requested_frames == sequence_length else
+        "frame_limit"
+    )
+    return {
+        "source": sequence_dir.name,
+        "source_kind": "mot_sequence",
+        "sequence_length": sequence_length,
+        "reported_source_fps": frame_rate if frame_rate > 0 else None,
+        "expected_resolution": {"width": width, "height": height},
+        "frames_requested": requested_frames,
+        "frames_decoded": decoded_frames,
+        "stop_reason": stop_reason,
+        "missing_frames": missing_frames,
+        "dimension_mismatches": dimension_mismatches,
+        "duration_observed_sec": elapsed,
+        "measured_decode_fps": decoded_frames / elapsed,
+        "decode_call_ms": {
+            "median": statistics.median(decode_times) * 1000 if decode_times else None,
+            "p95": _percentile(decode_times, 0.95) * 1000 if decode_times else None,
+        },
+        "limitations": [
+            "Image decode rate is not detector, tracker, or end-to-end pipeline FPS.",
+            "This check only decodes a bounded prefix and does not validate every image in the sequence.",
+            "No images are written, retained, or transmitted.",
         ],
     }
 

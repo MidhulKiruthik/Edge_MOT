@@ -39,6 +39,8 @@ Validate the local baseline configuration and inspect an annotation file before 
 ```bash
 race-mot validate-config --config configs/baseline.json
 race-mot inspect-mot --gt /path/to/MOT17-02-FRCNN/gt/gt.txt
+race-mot mot-probe --sequence /path/to/MOT17-02-FRCNN --frames 100 \
+  --output reports/NEW_RUN/mot_decode.json
 python tests/test_core.py -v
 ```
 
@@ -56,11 +58,19 @@ for finiteness, and writes no decoded, preprocessed, or annotated frame.
 race-mot detector-smoke --input-env RACE_MOT_RTSP_URL \
   --engine models/provisional/yolox_tiny_fp32_diagnostic.engine \
   --frames 10 --output reports/NEW_RUN/detector_smoke.json
+race-mot detector-smoke --mot-sequence data/mot17/MOT17-02-FRCNN \
+  --engine models/provisional/yolox_tiny_fp32_diagnostic.engine \
+  --frames 10 --output reports/NEW_RUN/mot_detector_smoke.json
 ```
 
 This validates only the engine and I/O path. It does not decode YOLOX proposals,
 apply NMS, establish person detections, run ByteTrack, or measure latency,
 throughput, tracking, energy, or thermal behavior.
+
+`mot-probe` is a separate bounded JPEG-decoding check for an extracted
+MOTChallenge image sequence. It verifies metadata, sequential image presence,
+and decoded dimensions without retaining frames. Its decode rate is not a
+detector, tracker, or end-to-end result.
 
 ## Next implementation milestone
 

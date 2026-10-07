@@ -11,7 +11,7 @@ from race_mot.config import load_config
 from race_mot.detector_smoke import DetectorSmokeConfig, run_detector_smoke
 from race_mot.evaluation.mot import group_by_frame, read_gt
 from race_mot.inventory import collect_inventory
-from race_mot.stream_probe import probe_source
+from race_mot.stream_probe import probe_mot_sequence, probe_source
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -36,12 +36,20 @@ def _parser() -> argparse.ArgumentParser:
         "--output", type=Path, help="JSON output path; defaults to stdout"
     )
 
+    mot_probe = commands.add_parser(
+        "mot-probe", help="decode a bounded MOT image-sequence prefix without saving frames"
+    )
+    mot_probe.add_argument("--sequence", required=True, type=Path)
+    mot_probe.add_argument("--frames", type=int, default=100)
+    mot_probe.add_argument("--output", type=Path, help="JSON output path; defaults to stdout")
+
     smoke = commands.add_parser(
         "detector-smoke", help="run a bounded no-save TensorRT detector feasibility check"
     )
     smoke_source = smoke.add_mutually_exclusive_group(required=True)
     smoke_source.add_argument("--input", help="local video path or public input URL")
     smoke_source.add_argument("--input-env", help="environment variable containing the private input URL")
+    smoke_source.add_argument("--mot-sequence", type=Path, help="local MOT image-sequence directory")
     smoke.add_argument("--engine", required=True, type=Path)
     smoke.add_argument("--frames", type=int, default=10)
     smoke.add_argument("--output", type=Path, help="JSON output path; defaults to stdout")
@@ -71,8 +79,10 @@ def main() -> int:
             if not source:
                 raise ValueError("input environment variable is unset or empty")
             report = probe_source(source, args.duration_sec)
+        elif args.command == "mot-probe":
+            report = probe_mot_sequence(args.sequence, args.frames)
         elif args.command == "detector-smoke":
-            source = os.environ.get(args.input_env) if args.input_env else args.input
+            source = args.mot_sequence if args.mot_sequence else (os.environ.get(args.input_env) if args.input_env else args.input)
             if not source:
                 raise ValueError("input environment variable is unset or empty")
             report = run_detector_smoke(

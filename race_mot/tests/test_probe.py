@@ -1,8 +1,9 @@
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 from types import SimpleNamespace
 
-from race_mot.stream_probe import probe_source
+from race_mot.stream_probe import probe_mot_sequence, probe_source
 
 
 class Capture:
@@ -64,6 +65,10 @@ class ProbeTests(unittest.TestCase):
         for duration in (0, -1, float('nan'), float('inf')):
             with self.subTest(duration=duration), self.assertRaises(ValueError):
                 probe_source('clip.avi', duration)
+
+    def test_mot_probe_rejects_nonpositive_frame_limit_before_decoder(self):
+        with self.assertRaises(ValueError):
+            probe_mot_sequence(Path("unused"), 0)
 
     def test_metadata_error_releases_capture(self):
         capture = Capture()

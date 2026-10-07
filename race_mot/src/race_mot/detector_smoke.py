@@ -6,6 +6,7 @@ import ctypes
 import math
 import statistics
 import time
+from configparser import ConfigParser
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -87,7 +88,7 @@ def _letterbox_bgr(frame: object, input_height: int, input_width: int) -> object
     return np.ascontiguousarray(padded.transpose(2, 0, 1), dtype=np.float32)
 
 
-def run_detector_smoke(source: str, config: DetectorSmokeConfig) -> dict[str, object]:
+def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[str, object]:
     """Run a fixed number of in-memory frames through a static TensorRT engine."""
     if not config.engine_path.is_file() or config.engine_path.stat().st_size == 0:
         raise ValueError("engine path must name a non-empty TensorRT engine")
@@ -98,35 +99,72 @@ def run_detector_smoke(source: str, config: DetectorSmokeConfig) -> dict[str, ob
     except ImportError as exc:
         raise RuntimeError("OpenCV, NumPy, and TensorRT Python are required for detector smoke") from exc
 
-    capture, backend = _open_capture(cv2, source)
-    if not capture.isOpened():
-        capture.release()
-        raise RuntimeError("Could not open input for detector smoke")
+    sequence_dir = Path(source)
+    if sequence_dir.is_dir():
+        info = ConfigParser()
+        info.read(sequence_dir / "seqinfo.ini", encoding="utf-8")
+        if not info.has_section("Sequence"):
+            raise ValueError("MOT sequence is missing valid seqinfo.ini metadata")
+        metadata = info["Sequence"]
+        try:
+            sequence_length = int(metadata["seqLength"])
+        except (KeyError, ValueError) as exc:
+            raise ValueError("MOT sequence has invalid seqLength metadata") from exc
+        image_dir = sequence_dir / metadata.get("imDir", "img1")
+        extension = metadata.get("imExt", ".jpg")
+        if not image_dir.is_dir():
+            raise ValueError("MOT sequence is missing its image directory")
+        sequence_index = 0
+
+        def read_frame() -> tuple[bool, object | None]:
+            nonlocal sequence_index
+            if sequence_index >= sequence_length:
+                return False, None
+            sequence_index += 1
+            frame = cv2.imread(str(image_dir / f"{sequence_index:06d}{extension}"), cv2.IMREAD_COLOR)
+            return frame is not None, frame
+
+        release = lambda: None
+        backend = "opencv_imread"
+        source_name = sequence_dir.name
+        source_kind = "mot_sequence"
+    else:
+        capture, backend = _open_capture(cv2, str(source))
+        if not capture.isOpened():
+            capture.release()
+            raise RuntimeError("Could not open input for detector smoke")
+
+        def read_frame() -> tuple[bool, object | None]:
+            return capture.read()
+
+        release = capture.release
+        source_name = redact_source(str(source))
+        source_kind = "video_or_stream"
     logger = trt.Logger(trt.Logger.ERROR)
     runtime = trt.Runtime(logger)
     engine = runtime.deserialize_cuda_engine(config.engine_path.read_bytes())
     if engine is None:
-        capture.release()
+        release()
         raise RuntimeError("could not deserialize TensorRT engine")
     input_names = [engine.get_tensor_name(index) for index in range(engine.num_io_tensors) if engine.get_tensor_mode(engine.get_tensor_name(index)) == trt.TensorIOMode.INPUT]
     output_names = [engine.get_tensor_name(index) for index in range(engine.num_io_tensors) if engine.get_tensor_mode(engine.get_tensor_name(index)) == trt.TensorIOMode.OUTPUT]
     if len(input_names) != 1 or len(output_names) != 1:
-        capture.release()
+        release()
         raise RuntimeError("detector smoke supports exactly one engine input and output")
     context = engine.create_execution_context()
     input_name, output_name = input_names[0], output_names[0]
     input_shape = tuple(context.get_tensor_shape(input_name))
     output_shape = tuple(context.get_tensor_shape(output_name))
     if len(input_shape) != 4 or any(size < 1 for size in input_shape):
-        capture.release()
+        release()
         raise RuntimeError(f"engine input shape must be static NCHW, got {input_shape}")
     if any(size < 1 for size in output_shape):
-        capture.release()
+        release()
         raise RuntimeError(f"engine output shape must be static, got {output_shape}")
     input_dtype = trt.nptype(engine.get_tensor_dtype(input_name))
     output_dtype = trt.nptype(engine.get_tensor_dtype(output_name))
     if input_dtype != np.float32:
-        capture.release()
+        release()
         raise RuntimeError(f"expected FP32 input engine, got {input_dtype}")
     cuda = _CudaRuntime()
     input_host = np.empty(input_shape, dtype=input_dtype)
@@ -146,7 +184,7 @@ def run_detector_smoke(source: str, config: DetectorSmokeConfig) -> dict[str, ob
         if not context.set_tensor_address(output_name, int(output_device.value)):
             raise RuntimeError("could not bind TensorRT output buffer")
         while frames_processed < config.frames:
-            ok, frame = capture.read()
+            ok, frame = read_frame()
             if not ok or frame is None:
                 stop_reason = "read_failure"
                 break
@@ -162,7 +200,7 @@ def run_detector_smoke(source: str, config: DetectorSmokeConfig) -> dict[str, ob
             finite_output_frames += int(bool(np.isfinite(output_host).all()))
             frames_processed += 1
     finally:
-        capture.release()
+        release()
         if stream is not None:
             cuda._library.cudaStreamDestroy(stream)
         cuda.free(output_device)
@@ -170,7 +208,8 @@ def run_detector_smoke(source: str, config: DetectorSmokeConfig) -> dict[str, ob
     if frames_processed == 0:
         raise RuntimeError("no frames were processed")
     return {
-        "source": redact_source(source),
+        "source": source_name,
+        "source_kind": source_kind,
         "opencv_backend": backend,
         "engine_path": config.engine_path.name,
         "frames_requested": config.frames,
