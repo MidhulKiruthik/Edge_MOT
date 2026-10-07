@@ -7,7 +7,7 @@
 
 ```mermaid
 flowchart LR
-  P[Stationary phone camera] -->|H.264 / RTSP / private Wi-Fi| I[Input validation and decoder]
+  P[Stationary phone camera] -->|H.264 / RTSP / USB-tethered private link| I[Input validation and decoder]
   M[MOT17/MOT20 replay files] --> I
   L[Authorized local clip fallback] --> I
   I --> F[Frame and timestamp adapter]
@@ -48,7 +48,7 @@ The diagram expresses logical dependencies, not a thread/process design. Decide 
 
 | Module | Input | Output | Contract / failure behavior |
 |---|---|---|---|
-| Input adapter | Primary: phone H.264/RTSP stream over private Wi-Fi; MOT replay files for evaluation; authorized local clip as fallback | Frames, timestamps, source metadata | Reject unreadable input; preserve timestamps; report decode/network gaps and reconnects; never log stream credentials. |
+| Input adapter | Primary: IP Webcam H.264/RTSP stream over a USB-tethered private link; MOT replay files for evaluation; authorized local clip as fallback | Frames, timestamps, source metadata | Reject unreadable input; preserve timestamps; report decode/network gaps and reconnects; never log stream credentials. |
 | Scene descriptor / discovery guard | Current/prior thumbnail, current frame, and active-track boxes | Fixed-size context vector plus optional `force_detect` reason | Deterministic and bounded; guard can upgrade only SKIP to DETECT. Record duration/false triggers and disable it if discovery benefit does not justify overhead. It is product robustness, not a novelty claim. |
 | Detector | Frame and frozen detector configuration | Boxes, classes, scores | Report load/inference errors; keep preprocessing/postprocessing timing. |
 | Tracker | Detections or skip/propagation event plus state | Temporary track IDs and boxes | Same tracker parameters for every policy; state reset between sequences. |
@@ -75,7 +75,7 @@ Do not persist image frames or identity-labelled ground truth in routine applica
 ## 6. Frozen working choices and remaining architecture decisions
 
 - Device: available Jetson Orin Nano; inventory exact memory/SKU, installed software, and measurement capability before setup.
-- Live demo input: one stationary phone camera using H.264/RTSP over the same private Wi-Fi. No public relay/cloud. MOT17/MOT20 recorded files remain the source for repeatable evaluation.
+- Live demo input: one stationary phone camera using IP Webcam H.264/RTSP over a direct USB-tethered private link. No public relay/cloud. MOT17/MOT20 recorded files remain the source for repeatable evaluation.
 - Detector candidate: YOLOX-Tiny, TensorRT FP16 candidate deployment; exact checkpoint, export, and license must pass the G1 feasibility check.
 - Dashboard decision: minimal local web UI served by the Jetson and accessed only on the trusted LAN; choose the lightweight framework during implementation. No public bind or cloud dependency.
 - Phone app/OS, stream reconnect timeout, and final input cadence; initial 1280×720, 15 fps H.264 profile if supported, to be frozen only after the baseline.

@@ -18,7 +18,7 @@ Complete before G1. If the physical device is unavailable, do not make an edge-p
 | Cooling, fan, enclosure | Record fan/heatsink/enclosure and keep configuration fixed during comparative runs |
 | Power measurement source and sample rate | Use an external meter at the Jetson power input as the primary whole-device measure when available; report onboard rail telemetry separately as diagnostic/cross-check |
 | Ambient test condition | Measure and record at each sustained run |
-| Available storage/network/input | Record free storage; phone camera via H.264/RTSP over the same private Wi-Fi; no cloud relay |
+| Available storage/network/input | Record free storage; phone camera via IP Webcam H.264/RTSP over direct USB tethering; no cloud relay |
 
 The device family is selected. Before installing anything, inventory the board in place. NVIDIA's current product documentation lists Orin Nano configurations with different RAM and performance/power modes; do not assume that the specific unit is the 8 GB developer kit or the Super configuration. The currently published NVIDIA JetPack download page lists JetPack 7.2.1 / Jetson Linux 39.2.1 for the Orin family, while JetPack 6.2.3 is also listed in the archive for Orin Nano. Preserve a working installed image; if a reflash becomes necessary, choose an officially supported release only after checking the YOLOX/TensorRT dependencies. [NVIDIA JetPack downloads](https://developer.nvidia.com/embedded/jetpack/downloads), [JetPack archive](https://developer.nvidia.com/embedded/jetpack-archive), [Jetson Orin Nano modules](https://developer.nvidia.com/embedded/jetson-modules).
 
@@ -67,7 +67,7 @@ Run long enough to reach sustained operating behavior, not just a short benchmar
 - One stream in the MVP. Multi-stream performance is out of scope.
 - Local inference by default; no cloud upload in the MVP.
 - Model files and logs have explicit storage paths and cleanup behavior.
-- The phone is the live demo source. Keep it stationary on a stable mount, use RTSP over a private local network, disable any cloud relay, and specify reconnect, buffering, timestamp, and frame-drop semantics separately from offline MOT file evaluation.
+- The phone is the live demo source. Keep it stationary on a stable mount, enable USB tethering and IP Webcam, use RTSP over the resulting private local link, disable any cloud relay, and specify reconnect, buffering, timestamp, and frame-drop semantics separately from offline MOT file evaluation.
 - On device or runtime failure, stop safely, report the fault, and preserve only authorized summary diagnostics.
 
 ## 7. Device feasibility gate

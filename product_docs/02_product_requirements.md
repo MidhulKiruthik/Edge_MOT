@@ -7,8 +7,8 @@
 
 | ID | Requirement | Acceptance evidence |
 |---|---|---|
-| FR-01 | The user can start, pause, stop, and restart a run from one stationary mobile-phone camera streaming H.264/RTSP over the same private Wi-Fi as the Jetson. An authorized local video file is a fallback and MOT17/MOT20 files are used for repeatable evaluation. | Demonstration of phone-to-Jetson stream and recorded-file replay; state transitions and errors appear in the UI/log. |
-| FR-02 | The application validates stream/file input and reports frame dimensions, source cadence/timestamps, and decode/network errors, including reconnect events. | Exercise a valid stream, interrupted Wi-Fi, invalid RTSP URL, valid file, and damaged file. |
+| FR-01 | The user can start, pause, stop, and restart a run from one stationary mobile-phone camera using IP Webcam H.264/RTSP over a direct USB-tethered local link to the Jetson. An authorized local video file is a fallback and MOT17/MOT20 files are used for repeatable evaluation. | Demonstration of USB-tethered phone-to-Jetson stream and recorded-file replay; state transitions and errors appear in the UI/log. |
+| FR-02 | The application validates stream/file input and reports frame dimensions, source cadence/timestamps, and decode/network errors, including reconnect events. | Exercise a valid stream, interrupted USB network, invalid RTSP URL, valid file, and damaged file. |
 | FR-03 | The system displays per-frame detections/tracks with temporary IDs and active-track count as an occupancy proxy. It does not claim line-crossing or validated people-counting accuracy. | Compare rendered samples and exported records against pipeline outputs. |
 | FR-04 | The application supports the fixed primary pipeline: one detector, ByteTrack, temporal predictor, scene-discovery guard, and binary detect/skip policy. The guard may upgrade a planned skip to full-frame detection, never cancel a planned detection. | Configuration identifies exact model/checkpoint/version; a run log records every planned and executed action and its trigger. |
 | FR-05 | The user can select baseline mode or adaptive mode. Baseline mode invokes the detector on every frame. | Run configuration and logs show the selected mode; output is repeatable for frozen settings. |
@@ -27,7 +27,7 @@
 | NFR-03 | Energy includes decode, preprocessing, detector, predictor, policy, tracker, rendering/logging required by the product. | Declared system boundary and meter/telemetry protocol; report joules per all input frames. |
 | NFR-04 | Tracking quality is not inferred from detector AP alone. | Report HOTA, IDF1, MOTA, ID switches, fragmentation, and defined detector metrics. |
 | NFR-05 | The adaptive policy cannot skip indefinitely. | Maximum consecutive skip count and no-active-track fallback are configured and logged. |
-| NFR-06 | The application does not require internet or cloud services at runtime; the phone-to-Jetson demo requires only the private local network. | Demonstrate local RTSP operation with internet access disabled and replay a benchmark file. |
+| NFR-06 | The application does not require internet or cloud services at runtime; the phone-to-Jetson demo requires only the private USB-tethered local link. | Demonstrate local RTSP operation with internet/cloud relay disabled and replay a benchmark file. |
 | NFR-07 | Raw video is not uploaded or retained by default. | Data-flow review and file-system inspection during acceptance. |
 | NFR-08 | The product does not perform face recognition or identify a person across sequences. | Feature review and product copy review. |
 | NFR-09 | Performance claims state exact device, model, resolution, precision, batch size, runtime, power mode, and thermal conditions. | Reproducible run manifest accompanies every published number. |

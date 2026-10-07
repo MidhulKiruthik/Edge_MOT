@@ -1,5 +1,6 @@
 # Python environments and caches
 .venv/
+.venv-g1/
 venv/
 __pycache__/
 *.py[cod]
@@ -26,3 +27,7 @@ logs/
 .idea/
 .DS_Store
 Thumbs.db
+# Private run artifacts, datasets, and model binaries
+runs/
+models/
+data/

@@ -55,9 +55,12 @@ def collect_inventory() -> dict[str, object]:
             "os_release": _read_text("/etc/os-release"),
             "jetson_release": _read_text("/etc/nv_tegra_release"),
             "meminfo": _read_text("/proc/meminfo"),
+            "thermal_zones": _thermal_zones(),
+            "hwmon_devices": _hwmon_devices(),
         },
         "software": {
             "jetpack_package": _command_output(["dpkg-query", "-W", "nvidia-jetpack"]),
+            "tensorrt_packages": _command_output(["dpkg-query", "-W", "libnvinfer*"]),
             "power_mode": _command_output(["nvpmodel", "-q"]),
             "cuda_compiler": _command_output(["nvcc", "--version"]),
             "tegrastats_path": shutil.which("tegrastats"),
@@ -68,6 +71,20 @@ def collect_inventory() -> dict[str, object]:
             "note": "This file contains system metadata; review it before sharing publicly.",
         },
     }
+
+
+def _thermal_zones() -> dict[str, str | None]:
+    zones: dict[str, str | None] = {}
+    for path in sorted(Path("/sys/class/thermal").glob("thermal_zone*/type")):
+        zones[path.parent.name] = _read_text(str(path))
+    return zones
+
+
+def _hwmon_devices() -> dict[str, str | None]:
+    devices: dict[str, str | None] = {}
+    for path in sorted(Path("/sys/class/hwmon").glob("hwmon*/name")):
+        devices[path.parent.name] = _read_text(str(path))
+    return devices
 
 
 def _opencv_version() -> str | None:
@@ -81,7 +98,5 @@ def _opencv_version() -> str | None:
 
 def write_inventory(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(collect_inventory(), indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    with path.open("x", encoding="utf-8") as handle:
+        handle.write(json.dumps(collect_inventory(), indent=2, ensure_ascii=False) + "\n")

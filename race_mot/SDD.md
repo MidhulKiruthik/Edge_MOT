@@ -2,7 +2,7 @@
 
 **Version:** 0.2  
 **Date:** 6 October 2026  
-**Status:** Revised design; Milestone 0 preflight code exists. Detector, tracker integration, risk predictor, scheduler, scene-discovery guard, evaluation runner, and dashboard are planned, not implemented.  
+**Status:** Revised design; Milestone 0 preflight code exists. Detector, tracker integration, risk predictor, integrated scheduler, scene-discovery guard, evaluation runner, and dashboard are planned. Standalone domain/config, scheduler, annotation, and label primitives exist.
 **Product:** Local, single-camera pedestrian MOT prototype for Jetson Orin Nano.  
 **Research method:** Calibrated, per-track prediction of avoidable identity failure under a specified next-frame detector-skip action, used for detector scheduling and evaluated against matched prior methods.
 
@@ -24,9 +24,9 @@ The design follows these rules:
 
 ### 2.1 In scope
 
-- One stationary, authorized mobile-phone camera stream delivered as H.264 over RTSP on a private local network.
+- One stationary, authorized mobile-phone camera stream from IP Webcam delivered as H.264 over RTSP on a private USB-tethered local link.
 - Recorded MOT17/MOT20 video replay for repeatable benchmark analysis; MOT17 is the development/evaluation source and MOT20 is held out for crowded-scene stress/generalization.
-- One provisional person detector: YOLOX-Tiny, 416-pixel model input, TensorRT FP16 if verified on the installed JetPack image. Freeze the exact checkpoint and terms before baseline measurement. The [official YOLOX repository](https://github.com/Megvii-BaseDetection/YOLOX) documents Tiny/Nano variants and TensorRT deployment; this does not settle the terms of every released checkpoint.
+- One provisional person detector: YOLOX-Tiny, 416-pixel model input, TensorRT FP32 on the currently verified board path. FP16 conversion is blocked on the installed JetPack image and must be re-evaluated only through an official compatibility path. Freeze the exact checkpoint and terms before baseline measurement. The [official YOLOX repository](https://github.com/Megvii-BaseDetection/YOLOX) documents Tiny/Nano variants and TensorRT deployment; this does not settle the terms of every released checkpoint.
 - One primary tracker: ByteTrack, with one pinned version and configuration used by all policy variants.
 - Baseline mode (detector on every frame) and adaptive mode (detector invocation controlled by calibrated future-failure risk).
 - Local dashboard with temporary tracks, active-track count as an occupancy proxy, run status, current action, timing, and error state.
@@ -73,7 +73,7 @@ The runtime should be a **single Python application process** with sequential de
 
 | Module | Current state | Responsibility |
 |---|---|---|
-| CLI (`cli.py`) | Implemented for preflight | `inventory` and `probe` commands only. |
+| CLI (`cli.py`) | Implemented for preflight | `inventory`, `probe`, `validate-config`, and `inspect-mot`. |
 | Device inventory (`inventory.py`) | Implemented | Read-only system/software metadata collection; no board configuration changes. |
 | Stream probe (`stream_probe.py`) | Implemented | Open local video/RTSP input, measure read/decode timing, and report redacted metadata; never writes frames. |
 | Source adapter | Planned | Normalize local files and RTSP into `FramePacket`; preserve source frame index, timestamp, and input-drop events. |
@@ -82,8 +82,8 @@ The runtime should be a **single Python application process** with sequential de
 | Feature/history store | Planned | Maintain bounded per-track history with elapsed seconds, source-frame gap, and consecutive detector skips, plus one optional scene-context vector per frame. |
 | Risk model and calibrator | Planned | Primary candidate is a causal-in-time track-history TCN; compare GRU/temporal MLP and track-only, context-concatenation, and optional shared-context gated-fusion variants. Score tracks, aggregate frame risk, and mark calibration validity. Report results by detector-gap bin. No fixed parameter or sub-millisecond target is assumed. |
 | Scene-discovery guard | Planned | Reuse the once-per-frame low-resolution thumbnail/frame-difference features; check activity outside padded active-track boxes and upgrade a planned `SKIP` to full-frame `DETECT` for new activity or abrupt scene change. It cannot downgrade a planned detection. Measure discovery delay/recall, false triggers, and cost; this is a product safety mechanism, not novelty. |
-| Scheduler | Planned | Select binary next-frame `DETECT` or `SKIP`, apply the scene-guard override and hard fallbacks, and emit reason codes. |
-| Evaluation/label tools | Planned | Create offline counterfactual labels, run sequence-level metrics, calibration and statistical summaries. |
+| Scheduler | Standalone primitive; runtime integration planned | Select binary next-frame `DETECT` or `SKIP`, apply the scene-guard override and hard fallbacks, and emit reason codes. |
+| Evaluation/label tools | Annotation reader and outcome-label primitive; full evaluation planned | Create offline counterfactual labels, run sequence-level metrics, calibration and statistical summaries. |
 | Run logger/telemetry | Planned | Store configuration, per-frame actions/metrics, summary, and hardware measurements. |
 | Dashboard/export | Planned | Show latest run snapshot and export summary/decision log; video export stays opt-in. |
 
@@ -100,18 +100,18 @@ edge/race_mot/
 ├── runs/                        # local run manifests, frame logs, summaries
 └── src/race_mot/
     ├── __init__.py              # present
-    ├── cli.py                   # present: inventory, probe
+    ├── cli.py                   # present: inventory, probe, validate-config, inspect-mot
     ├── inventory.py             # present
     ├── stream_probe.py          # present
     ├── application.py           # planned: run lifecycle/orchestration
-    ├── config.py                # planned: validated configuration
-    ├── domain.py                # planned: frame/detection/track/action records
+    ├── config.py                # present: JSON configuration validation
+    ├── domain.py                # present: frame/detection/track/action records
     ├── sources/                 # planned: file and RTSP source adapters
     ├── detectors/               # planned: YOLOX/TensorRT interface
     ├── trackers/                # planned: ByteTrack adapter
     ├── risk/                    # planned: features, TCN/GRU/MLP, calibration
-    ├── policy/                  # planned: binary action scheduler
-    ├── evaluation/              # planned: rollouts, labels, metrics, statistics
+    ├── policy.py                # present: standalone scheduler primitive
+    ├── evaluation/              # present: annotation/label primitives; full runner planned
     ├── telemetry/               # planned: Jetson sampler and energy sync
     ├── logging/                 # planned: manifests and per-frame records
     └── web/                     # planned: local dashboard
@@ -121,7 +121,7 @@ edge/race_mot/
 
 ## 5. Runtime data contracts
 
-The exact implementation language is Python. Python annotations below illustrate the contract; they are not yet implemented classes.
+The exact implementation language is Python. Core record classes are in `domain.py`; adapter and runtime APIs below remain planned.
 
 ### 5.1 `FramePacket`
 
@@ -251,7 +251,9 @@ The installed CLI currently supports only:
 
 ```text
 race-mot inventory [--output PATH]
-race-mot probe --input SOURCE [--duration-sec N] [--output PATH]
+race-mot probe (--input SOURCE | --input-env VARIABLE) [--duration-sec N] [--output PATH]
+race-mot validate-config --config PATH
+race-mot inspect-mot --gt PATH
 ```
 
 The `inventory` command is read-only. The `probe` command reads frames but does not save them. Its read rate is not end-to-end MOT FPS. These are Milestone 0 utilities, not a finished product interface.
@@ -304,7 +306,7 @@ measurement:
   deadline_ms: TBD
   telemetry_interval_ms: 1000
 dashboard:
-  bind_address: 127.0.0.1     # explicit private LAN interface only when remote display is needed
+  bind_address: 127.0.0.1     # loopback by default; explicit trusted-LAN address requires review
   port: 8765
   save_annotated_video: false
 ```
@@ -337,7 +339,7 @@ Keep authorized logs in the project workspace until assessment completion and de
 - Target device: the available Jetson Orin Nano. Exact module RAM/SKU, carrier, thermal assembly, JetPack, CUDA/TensorRT, Python, and available telemetry are recorded by the inventory command before installation changes.
 - Preserve the installed NVIDIA image for the first feasibility pass. The [NVIDIA JetPack support matrix/download page](https://developer.nvidia.com/embedded/jetpack/downloads) changes over time; lock the exact compatible software release in the run manifest rather than assuming the latest release is suitable.
 - Train the risk model in an approved offline development environment using public MOT annotations; deploy only the frozen inference model/calibrator to Jetson. No raw phone video is uploaded for training.
-- The intended application requires no cloud service at runtime. The RTSP camera and dashboard communicate on the private local network only; verify observed network behavior before making a zero-leakage claim.
+- The intended application requires no cloud service at runtime. The RTSP camera and dashboard communicate on the private USB-tethered local link or configured trusted LAN only; verify observed network behavior before making a zero-leakage claim.
 - The local web service binds to loopback by default. If another trusted device must access the dashboard, configure the Jetson's private LAN address explicitly and prevent router port-forwarding/public exposure.
 
 ### 9.2 Failure behavior
@@ -411,8 +413,8 @@ No tests or benchmark results are implied by the SDD. Use the separate [verifica
 
 | Decision | Current position | Closure condition |
 |---|---|---|
-| Orin Nano module RAM/SKU, carrier, cooling, installed JetPack | Not yet inventoried on target | Store inventory output; no software upgrade before compatibility review. |
-| Phone OS/RTSP app and actual stream profile | H.264/RTSP, 1280x720 at 15 fps is the starting proposal | Probe stream, timestamps, buffering and reconnect on actual LAN. |
+| Orin Nano module RAM/SKU, carrier, cooling, installed JetPack | Partial inventory retained; carrier/cooling still open | Complete inventory output; no software upgrade before compatibility review. |
+| Phone OS/RTSP app and actual stream profile | IP Webcam H.264/RTSP over USB tethering; 1280x720 at 15 fps is the starting proposal | Verify USB network interface, endpoint, timestamps, buffering and reconnect on the actual link. |
 | YOLOX checkpoint and TensorRT engine | YOLOX-Tiny candidate only | Verify provenance/license, install support, output parity, person recall, and inference. |
 | ByteTrack implementation/version and skip semantics | ByteTrack selected; adapter unimplemented | Pin source/version and validate association and track propagation. |
 | $K$, $M$, anchor match/visibility rules | Unset until label audit | Freeze before training; document pseudocode and edge cases. |

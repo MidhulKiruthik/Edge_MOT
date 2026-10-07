@@ -11,9 +11,9 @@ Do not use the prototype for face recognition, identifying/naming individuals, c
 ## 2. Phone camera and local-network safeguards
 
 - Use the phone as a stationary camera only for an authorized, controlled demo scene. Prefer staged volunteers or a scene without identifiable bystanders.
-- Send H.264/RTSP directly over the same private local Wi-Fi to the Jetson. Do not enable a public RTSP relay, cloud recording, or remote access port.
+- Send IP Webcam H.264/RTSP directly over the private USB-tethered local link to the Jetson. Do not enable a public RTSP relay, cloud recording, or remote access port.
 - Do not place RTSP credentials in the repository, screenshots, or run logs. Redact the URL in diagnostics.
-- If the local Wi-Fi is unreliable, stop the demo and replay an authorized recorded clip; do not silently drop/reorder frames or claim real-time behavior from an unstable feed.
+- If the USB-tethered link is unreliable, stop the demo and replay an authorized recorded clip; do not silently drop/reorder frames or claim real-time behavior from an unstable feed.
 
 ## 3. Data minimization defaults
 

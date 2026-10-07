@@ -6,7 +6,7 @@
 
 ## Product direction
 
-The working MVP is a **local, single-camera pedestrian-tracking prototype** running on the available Jetson Orin Nano. A stationary mobile phone supplies the live demo feed over RTSP on a private local network; recorded MOT17/MOT20 files provide repeatable evaluation. The system detects and tracks people with anonymous short-lived IDs, displays tracks and an active-track count (an occupancy proxy), and records compute decisions and device measurements. It is an academic prototype, not a validated people-counting or production surveillance system.
+The working MVP is a **local, single-camera pedestrian-tracking prototype** running on the available Jetson Orin Nano. A stationary mobile phone running IP Webcam supplies the live H.264/RTSP demo feed over a private USB-tethered local link; recorded MOT17/MOT20 files provide repeatable evaluation. The system detects and tracks people with anonymous short-lived IDs, displays tracks and an active-track count (an occupancy proxy), and records compute decisions and device measurements. It is an academic prototype, not a validated people-counting or production surveillance system.
 
 The student/faculty demo workflow, Orin Nano device family, and phone-to-Jetson live input direction are agreed. Exact board/RAM/software inventory and stream feasibility still need a short G1 check. The project prioritizes a functioning prototype; a conference paper is a later option only if the work and evidence support it.
 
@@ -22,10 +22,11 @@ The student/faculty demo workflow, Orin Nano device family, and phone-to-Jetson 
 8. [Decision log and pre-code gate](08_decisions_and_pre_code_gate.md) — unresolved assumptions, owner decisions, and the conditions that must be met before code starts.
 9. [Faculty pitch](09_faculty_pitch.md) — concise research framing, prior art, gap, objectives, and proposed method for supervisor discussion.
 10. [Software Design Document](../race_mot/SDD.md) — implementation structure, data/API contracts, run artifacts, runtime behavior, and development order.
+11. [Requirements traceability](10_requirements_traceability.md) — requirement owners, verification cases, expected results, and retained evidence.
 
 ## Project source of truth
 
-- The current technical direction and prior-art review live in [deep_research_mot_edge_merged.md](../deep_research_mot_edge_merged.md). Use it for the research question, novelty status, direct prior art, failure definition, policy, metrics, and benchmark protocol.
+- The decision log is the authority for approved scope and decisions. The product documents are the authority for requirements, architecture, data, hardware, privacy, and acceptance contracts. The SDD is the authority for implementation interfaces and runtime behavior. The current technical direction and prior-art review in [deep_research_mot_edge_merged.md](../deep_research_mot_edge_merged.md) is research framing and evidence review; it does not override an approved product decision.
 - [energytrack_project_proposal.md](../energytrack_project_proposal.md) is an earlier proposal draft. It contains broader compute modes and optional dataset ideas that conflict with the current binary skip/detect scope. Treat it as historical material, not an approved product specification.
 - Keep new product decisions in the decision log. If a decision changes model actions, datasets, hardware, or metrics, update the technical report too.
 

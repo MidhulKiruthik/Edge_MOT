@@ -16,7 +16,7 @@ The MVP does not identify people across cameras or sessions. Track IDs are tempo
 
 **User job:** connect one authorized pedestrian video stream, view anonymous detections/tracks and the per-frame active-track count (an occupancy proxy), see whether the system is keeping up, and export a report of tracking and compute behavior.
 
-**Deployment setting:** a single mobile phone mounted as a stationary camera in an authorized, controlled pedestrian scene (such as a staged corridor demo). The phone streams to the Jetson on a private local network. This remains an academic demonstration, not an approved operational deployment. Obtain required authorization before capturing people. The active-track count is not claimed as validated pedestrian counting or directional flow analytics.
+**Deployment setting:** a single mobile phone mounted as a stationary camera in an authorized, controlled pedestrian scene (such as a staged corridor demo). The phone streams to the Jetson over a private local link supplied by direct USB tethering. This remains an academic demonstration, not an approved operational deployment. Obtain required authorization before capturing people. The active-track count is not claimed as validated pedestrian counting or directional flow analytics.
 
 ## 3. User problem
 
@@ -24,10 +24,10 @@ Running a detector on every frame can consume significant edge-device compute. S
 
 ## 4. MVP workflow
 
-1. For the live demonstration, the user starts an H.264/RTSP feed from the stationary phone camera over private Wi-Fi. Recorded MOT17/MOT20 files are used for repeatable evaluation. A local authorized video file is a fallback input.
+1. For the live demonstration, the user starts an IP Webcam H.264/RTSP feed from the stationary phone camera over the direct USB-tethered local link. Recorded MOT17/MOT20 files are used for repeatable evaluation. A local authorized video file is a fallback input.
 2. The application validates the stream/file and reports dimensions, source cadence, timestamps, and decoding/network errors.
 3. The pipeline processes frames, showing anonymous bounding boxes, temporary track IDs, and the active-track count.
-4. The calibrated risk controller schedules either **detect** or **skip detector and propagate tracks** for the next input frame. When a new frame arrives, a low-cost scene-discovery guard may upgrade a planned skip to full-frame detection for untracked activity or an abrupt scene change. It cannot cancel a planned detection. The UI/log exposes the action and trigger.
+4. When calibration passes its held-out checks, the calibrated risk controller schedules either **detect** or **skip detector and propagate tracks** for the next input frame. If calibration is not valid, the system must expose the output as a score and remain in a non-accepting adaptive state. When a new frame arrives, a low-cost scene-discovery guard may upgrade a planned skip to full-frame detection for untracked activity or an abrupt scene change. It cannot cancel a planned detection. The UI/log exposes the action and trigger.
 5. The user can pause, stop, and restart processing without leaving a stuck camera, model, or output file open.
 6. The user exports an annotated video only when explicitly requested, plus a compact CSV/JSON run summary and decision log.
 

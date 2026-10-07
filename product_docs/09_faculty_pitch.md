@@ -2,42 +2,42 @@
 
 **Comprehensive Academic Project Proposal & Faculty Presentation Report**  
 **Document Type:** Formal Research Proposal, Technical Specification, and Presentation Pack  
-**Project Outcome:** Fully functioning, physical edge-computing prototype; peer-reviewed conference paper optional (evidence-contingent).  
-**Target Hardware:** NVIDIA Jetson Orin Nano (6-core ARM Cortex-A78AE, Ampere GPU, unified LPDDR5, 7W/15W/25W power modes).  
+**Project Outcome:** A proposed local edge-computing prototype, with implementation and research results gated by feasibility and measurement evidence; peer-reviewed conference paper optional.
+**Target Hardware:** NVIDIA Jetson Orin Nano Engineering Reference Developer Kit Super with 7.6 GiB RAM, JetPack 7.2.1, CUDA 13.2, TensorRT 10.16.2, and 25 W power mode recorded in private G1 inventory. Carrier/cooling detail and the final measurement boundary remain open.
 **Author / Presenter:** Midhul Kiruthik M .
 **Faculty / Department:** BalaMurugan .
 **Date / Version:** October 2026 | Revision v1.0 (Comprehensive Expansion)  
 **Project Repositories & Working Files:**
-- Technical Research & Prior-Art Review: [deep_research_mot_edge_merged.md](file:///d:/DeepLearning/edge/deep_research_mot_edge_merged.md)
-- Product Documentation Pack: [product_docs/README.md](file:///d:/DeepLearning/edge/product_docs/README.md)
-- Implementation Workspace: [race_mot/README.md](file:///d:/DeepLearning/edge/race_mot/README.md)
+- Technical Research & Prior-Art Review: [deep_research_mot_edge_merged.md](../deep_research_mot_edge_merged.md)
+- Product Documentation Pack: [product_docs/README.md](README.md)
+- Implementation Workspace: [race_mot/README.md](../race_mot/README.md)
 
 ---
 
 ## Executive Abstract
 
-Multi-Object Tracking (MOT) in edge computing requires simultaneously localizing dynamic targets and maintaining trajectory continuity under strict compute, memory bandwidth, energy, and thermal budgets. The conventional Tracking-by-Detection (TBD) paradigm invokes a deep convolutional or transformer-based detector on every video frame—a practice that consumes up to 85% of total pipeline compute and rapidly exhausts thermal headroom on embedded devices. While heuristics (e.g., periodic skipping, confidence gating) and recent surrogate models (e.g., HSFSO, 2026) attempt to skip detection frames, they operate at aggregate sequence levels or rely on uncalibrated spatial heuristics, failing to capture whether an individual track will experience a catastrophic identity swap or fragmentation.
+Multi-Object Tracking (MOT) in edge computing requires simultaneously localizing dynamic targets and maintaining trajectory continuity under strict compute, memory bandwidth, energy, and thermal budgets. Tracking-by-Detection (TBD) pipelines can spend a substantial share of their work on detector inference, but the share and device impact are workload- and hardware-dependent and are not project measurements. While heuristics (e.g., periodic skipping, confidence gating) and recent surrogate models (e.g., HSFSO, 2026) attempt to skip detection frames, this project investigates whether an individual track's avoidable identity failure can be predicted before the next detector decision.
 
-**RACE-MOT (Risk-Calibrated Adaptive Compute for Edge Multi-Object Tracking)** introduces a product-first, physically validated edge tracking system. Its core methodological contribution is an online, per-track **counterfactual avoidable identity failure formulation ($Y_{g,t}^{(K,M)}$)**, predicting whether skipping the detector on the upcoming frame $t+1$ will cause an identity error that executing the detector would prevent. A lightweight causal 1D Temporal Convolutional Network (TCN) ($<80\text{k}$ parameters, latency $<0.4\text{ ms}$) processes causal kinematic, Kalman innovation, and association histories, outputting statistically calibrated failure probabilities ($q_{i,t}$) evaluated via Brier score and Expected Calibration Error (ECE). Frame-level aggregation guides a binary compute policy (`DETECT` vs. `SKIP`), backed by a low-cost scene-discovery guard.
+**RACE-MOT (Risk-Calibrated Adaptive Compute for Edge Multi-Object Tracking)** proposes a product-first edge tracking system whose implementation and measurements remain to be completed. Its primary methodological claim is an online, per-track **counterfactual avoidable identity failure formulation ($Y_{g,t}^{(K,M)}$)**, predicting whether skipping the detector on the upcoming frame $t+1$ will cause an identity error that executing the detector would prevent. A candidate causal 1D Temporal Convolutional Network (TCN) processes causal kinematic, Kalman innovation, and association histories. Its parameter count, latency, calibration quality, and policy value will be measured after the model definition and device path are frozen. Frame-level aggregation is intended to guide a binary compute policy (`DETECT` vs. `SKIP`), backed by a low-cost scene-discovery guard.
 
-The entire pipeline—comprising RTSP video ingestion, candidate YOLOX-Tiny (TensorRT FP16), ByteTrack, the TCN risk head, policy scheduling, XAI decision logging, and a local web dashboard—is hosted natively on an NVIDIA Jetson Orin Nano receiving live video from a stationary smartphone over a private local network. Evaluation is performed on MOT17 (grouped sequence cross-fitting) and MOT20 (locked crowd generalization). We measure complete-pipeline energy ($\text{Joules/input frame}$) across hardware power rails, explicitly accounting for all model, feature extraction, and logging overheads.
+The proposed pipeline comprises RTSP video ingestion, candidate YOLOX-Tiny with a runtime precision pending the G1 compatibility decision, ByteTrack, a risk head, binary policy scheduling, decision logging, and a local web dashboard hosted on an NVIDIA Jetson Orin Nano. It is intended to receive live video from a stationary smartphone running IP Webcam over a private USB-tethered local link. Evaluation is planned on MOT17 with sequence-grouped roles and MOT20 as a locked crowd/generalization set. Complete-pipeline energy, when a suitable external Jetson-input meter is available, will be measured per input frame with onboard rail telemetry reported separately as a diagnostic.
 
 ---
 
 ## 1. Introduction & Engineering Motivation
 
 ### 1.1 Application Context & Market Drivers (2024–2026)
-Video analytics at the edge is undergoing a structural transition driven by bandwidth constraints, latency requirements, and privacy regulations. The global Edge AI hardware and vision analytics market is projected to expand from \$25B in 2024 to over \$31B by 2026. Critical applications include:
+Video analytics at the edge is undergoing a structural transition driven by bandwidth constraints, latency requirements, and privacy regulations. Market estimates vary by the definition of edge AI, hardware, and video analytics; they are motivation only and are not used as project requirements. Relevant application contexts include:
 1. **Smart Urban Infrastructure & Occupancy Monitoring:** Monitoring pedestrian density and spatial distribution in public concourses, transit hubs, and commercial spaces without uploading raw video streams to public cloud endpoints.
-2. **Autonomous Mobile Robots (AMRs) & Micro-Mobility:** Real-time pedestrian avoidance and trajectory tracking operating under constrained battery capacities ($10\text{W}–25\text{W}$ system limits).
-3. **Private Perimeter Security & Facility Safety:** Continuous, reliable tracking on edge nodes capable of surviving intermittent network disconnects while providing fully auditable telemetry.
+2. **Edge-computing research:** constrained compute, energy, and latency can motivate adaptive tracking research, without extending this prototype to safety-critical use.
+3. **Authorized academic demonstrations:** local, temporary tracks and operational diagnostics can support controlled demonstrations, without operational security or enforcement use.
 
 ### 1.2 The Edge Compute Bottleneck in Tracking-by-Detection
 In modern Tracking-by-Detection (TBD) pipelines (e.g., YOLO + ByteTrack), the detector component dominates the computational footprint:
-- **Detector Workload:** Executing a lightweight CNN (e.g., YOLOX-Tiny at $416\times416$) on an embedded GPU typically requires $6.5\text{ ms}$ to $18\text{ ms}$ and draws $10\text{W}$ to $15\text{W}$.
-- **Tracker Workload:** The motion association stage (Kalman filtering + Hungarian matching in ByteTrack) requires $<1.5\text{ ms}$ on the CPU and draws nominal power.
+- **Detector Workload:** Detector inference can dominate a TBD pipeline, but timing and power depend on the exact model, runtime, device, and workload. RACE-MOT will measure them on the selected Jetson configuration.
+- **Tracker Workload:** Kalman filtering and association are expected to be lower-cost than detector inference, but their timing and power will also be measured on the target device.
 
-Running the detector on every frame provides a high MOTA/HOTA baseline, but in low-power edge deployments, continuous per-frame inference triggers **thermal throttling**, memory bus saturation, and excessive battery drain. 
+Running the detector on every frame is the reference policy for tracking comparison. In sustained low-power edge deployment it may affect temperature, clocks, memory pressure, and energy use; those effects require measurement on this device.
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────┐
@@ -45,10 +45,10 @@ Running the detector on every frame provides a high MOTA/HOTA baseline, but in l
 ├───────────────────────────────────────┬───────────────────────────────────────┤
 │    DETECTOR ON EVERY FRAME (D=1)      │     AGGRESSIVE FRAME SKIPPING (D>1)   │
 ├───────────────────────────────────────┼───────────────────────────────────────┤
-│ • High HOTA and IDF1 tracking quality │ • Lowers average GPU power draw       │
-│ • Excessive battery & energy drain    │ • High-risk kinematic drift           │
-│ • Sustained SoC heating & throttling  │ • Catastrophic identity swaps         │
-│ • Saturated unified memory bandwidth  │ • Delayed detection of new entrants   │
+│ • Reference tracking-quality condition│ • May lower detector work              │
+│ • Baseline energy/latency measurement │ • Risk of drift and association errors │
+│ • Sustained device effects TBD        │ • New entrants can be delayed          │
+│ • Measured on the selected board      │ • Requires matched evaluation          │
 └───────────────────────────────────────┴───────────────────────────────────────┘
 ```
 
@@ -58,10 +58,10 @@ Skipping detector calls reduces average power draw, but leaves the tracker to pr
 
 | Operating Condition | Physical & Algorithmic Failure Mode | What RACE-MOT Measures & Mitigates |
 |---|---|---|
-| **Continuous Per-Frame Detection** | Thermal build-up forces DVFS to drop GPU clock frequencies; memory bus reaches saturation; real-time deadlines are missed. | Measures true whole-board Joules per frame ($E_{\text{run}}/N_{\text{input}}$) and establishes the reference quality frontier. |
+| **Continuous Per-Frame Detection** | Sustained load may change clocks, temperature, memory pressure, and deadline behavior; the effect is unmeasured on this device. | Measures true whole-board Joules per frame ($E_{\text{run}}/N_{\text{input}}$) and establishes the reference quality frontier. |
 | **Unguided / Periodic Skipping** | Linear Kalman filter diverges during non-linear turns or crossing paths; identity is swapped upon detector re-acquisition. | Formulates an action-conditioned risk metric that prevents skips when tracks enter vulnerable geometric or crowding states. |
 | **New Entrant During Skip Interval** | A new person enters the frame while existing tracks are deemed safe; a track-only skip scheduler fails to detect the entrant. | Integrates an asymmetric, low-overhead Scene-Discovery Guard that overrides `SKIP` $\to$ `DETECT` upon peripheral activity. |
-| **Sustained Thermal Operation** | Prolonged execution at high ambient temperatures leads to clock throttling from $625\text{ MHz} \to 300\text{ MHz}$, doubling latency. | Monitors real-time SoC temperature, clocks, and throttling flags, logging deadline miss rates ($\text{DMR}$) under sustained runs. |
+| **Sustained Thermal Operation** | Prolonged execution may cause clock or thermal changes; the onset and latency impact are TBD on the selected board and cooling setup. | Monitors real-time SoC temperature, clocks, and throttling flags, logging deadline miss rates ($\text{DMR}$) under sustained runs. |
 
 ---
 
@@ -127,11 +127,11 @@ The project enforces a strict boundary between **functional prototype delivery**
 └───────────────────────────────────────┴───────────────────────────────────────┘
 ```
 
-1. **Autonomous Edge Ingestion & Execution:** Ingest an H.264/RTSP live stream from a stationary smartphone over a private local Wi-Fi network and execute on an NVIDIA Jetson Orin Nano with zero cloud dependencies.
-2. **Guaranteed Local Data Privacy:** Provide real-time pedestrian visualization with ephemeral IDs and an active-track occupancy count without storing raw video frames or logging biometric identities.
+1. **Autonomous Edge Ingestion & Execution:** Ingest an H.264/RTSP live stream from a stationary smartphone running IP Webcam over a private USB-tethered local link and execute on an NVIDIA Jetson Orin Nano with zero cloud dependencies.
+2. **Local data-minimization design:** Provide temporary IDs and an active-track occupancy proxy without default raw-frame retention or biometric identities; verify this behavior during acceptance.
 3. **Counterfactual Label Engine:** Implement an automated paired-rollout engine on MOT17 to extract causal failure labels ($Y_{g,t}^{(K,M)}$) without temporal leakage.
-4. **Lightweight Risk Architecture:** Train and ablate a causal 1D Temporal Convolutional Network (TCN) against compact GRU and temporal MLP baselines under a parameter constraint of $<100\text{k}$ parameters.
-5. **Statistical Probability Calibration:** Achieve rigorous probability calibration on natural-prevalence sequences, minimizing Brier Score and Expected Calibration Error (ECE $\le 0.08$).
+4. **Lightweight Risk Architecture:** Train and ablate a candidate causal 1D Temporal Convolutional Network (TCN) against compact GRU and temporal MLP baselines. The final parameter count will be derived from the frozen model definition.
+5. **Statistical Probability Calibration:** Evaluate calibration on natural-prevalence sequences using Brier Score, ECE, and reliability plots. Acceptance thresholds remain TBD until the measurement contract is frozen.
 6. **Bounded Decision Scheduling:** Construct an online runtime scheduler implementing a binary action space (`DETECT` vs. `SKIP`), enforced with hard limits on maximum consecutive skips ($S_{\max}$) and empty-track fallbacks.
 7. **Multi-Faceted Comparative Evaluation:** Benchmark RACE-MOT against 7 distinct baseline classes: detector-every-frame, periodic skipping, confidence gating, Kalman uncertainty gating (ALBIREO-style), HSFSO-style surrogate scheduling, and EMO/RT-MOT variants.
 8. **Empirical Edge Benchmarking:** Report complete-pipeline Joules per input frame, end-to-end $p50/p95$ latency, deadline-miss rates ($\text{DMR}$), peak memory, and sustained thermal profiles on the Jetson Orin Nano.
@@ -145,7 +145,7 @@ The following matrix evaluates RACE-MOT against all mandated and contemporary (2
 
 | Method | What does it predict? | When does it predict it? | What input does it use? | What action does it trigger? | Per-track or frame-level? | Explicitly predicts avoidable identity failure? | Is it calibrated? | Used for next-frame detector scheduling? | Evaluated on physical edge hardware? |
 |---|---|---|---|---|---|---|---|---|---|
-| **RACE-MOT** *(Proposed)* | Near-future probability $q_{i,t}$ of an avoidable ID failure over horizon $K$ | Online, after processing frame $t$, before frame $t+1$ | Bounding box kinematics, Kalman innovation covariance, track age/miss history, spatial density, low-cost frame cues | Binary compute gating: `DETECT` (run detector) or `SKIP` (propagate tracks) | **Per-track** ($q_{i,t}$), aggregated conservatively to frame ($Q_t = \max_i q_{i,t}$) | **YES** (via counterfactual paired rollout label $Y_{g,t}^{(K,M)}$) | **YES** (Platt/Isotonic calibration; evaluated via Brier/ECE) | **YES** (Core objective) | **YES** (Jetson Orin Nano with physical Joules/frame telemetry) |
+| **RACE-MOT** *(Proposed)* | Proposed near-future score/probability $q_{i,t}$ of an avoidable ID failure over horizon $K$ | Intended online use after processing frame $t$, before frame $t+1$ | Bounding box kinematics, Kalman innovation covariance, track age/miss history, spatial density, low-cost frame cues | Intended binary gating: `DETECT` or `SKIP` | Proposed per-track score, aggregated to frame ($Q_t = \max_i q_{i,t}$) | **Proposed** via counterfactual paired rollout label $Y_{g,t}^{(K,M)}$ | **To be evaluated** with Platt/Isotonic calibration, Brier, and ECE | **Proposed core objective** | **Planned** Jetson evaluation; physical energy evidence is TBD |
 | **ALBIREO** *(ACM/IEEE SEC 2026)* [10] | 10D kinematic state & covariance uncertainty ($P_t$) of object positions | Online, at frame $t$, prior to detector invocation | Past 2D box coordinates, aspect ratios, and estimated velocities/accelerations | Binary: Invoke detector vs. skip detector and extrapolate boxes via 10D Kalman Filter | Per-object covariance, aggregated via heuristic threshold | **NO** (Predicts spatial bounding box drift for *detection*; ignores identity switches & association) | **NO** (Uncalibrated Kalman covariance trace heuristic) | **YES** | **YES** (Jetson AGX Orin & Thor on BDD100K) |
 | **HSFSO** *(Inf. Sciences 2026)* [9] | Scalar tracking score / aggregate MOTA degradation under candidate skip ratios | Offline / Segment-level (hierarchical global + local) | Optical flow vectors, inter-frame pixel differences, scene motion into an MLP surrogate | Selects global skip ratio $R$, then optical-flow frame selection for which frames to skip | **Scene/Sequence-level** (global surrogate; local selection uses motion energy) | **NO** (Predicts scalar dataset MOTA; no per-track counterfactual identity error target) | **NO** (Standard uncalibrated regression loss) | **NO** (Segment-level schedule allocation, not per-track causal online gating) | **NO** (Desktop GPU evaluation using YOLOv8-s + ByteTrack on MOT17/20) |
 | **EMO** *(arXiv 2023)* [5] | Does not predict failure; measures inter-frame visual change & track variance | Online, per-frame | Inter-frame feature similarity, bounding box overlap, sliding window timers | Periodic skip with similarity-triggered detector re-invocation | Frame & sliding-window heuristics | **NO** (Heuristic similarity thresholds) | **NO** | **YES** (Heuristic frame skipping) | **YES** (Jetson boards; latency/throughput measurement study) |
@@ -200,8 +200,8 @@ The intersection of multi-object tracking, causal machine learning, and edge sys
 ### 5.2 Formal Hypotheses to be Tested
 - **Hypothesis 1 ($H_1$ — Predictive Validity & Calibration):** A causal temporal network (1D TCN) ingesting multi-frame kinematic, Kalman residual, and association features achieves statistically superior PR-AUC and Brier scores compared to static classifiers, raw confidence thresholds, and Kalman covariance heuristics when predicting avoidable identity failures.
 - **Hypothesis 2 ($H_2$ — Pareto Energy Superiority):** Conditioning next-frame detector invocations on calibrated risk $Q_t \ge \tau$ achieves a superior empirical Pareto frontier (lower Joules per input frame at non-inferior HOTA/IDF1) compared to periodic skipping, ALBIREO-style uncertainty triggers, and HSFSO surrogates on an NVIDIA Jetson Orin Nano.
-- **Hypothesis 3 ($H_3$ — Discovery Guard Efficacy):** An asymmetric, low-cost peripheral activity guard reduces new-entrant acquisition delay during skip sequences with a compute overhead of $<0.15\text{ ms}$ per frame, preventing track suppression without degrading energy gains.
-- **Hypothesis 4 ($H_4$ — Thermal & Deadline Robustness):** By shedding up to 40% of redundant detector inferences during stable tracking intervals, RACE-MOT prevents SoC thermal throttling under sustained 20-minute runs, keeping deadline-miss rates ($\text{DMR}$) below 2.0%.
+- **Hypothesis 3 ($H_3$ — Discovery Guard Efficacy):** A peripheral activity guard may reduce new-entrant acquisition delay during skip sequences, but its false-trigger rate, overhead, and full-pipeline value must be measured against risk-only scheduling.
+- **Hypothesis 4 ($H_4$ — Thermal & Deadline Robustness):** Adaptive scheduling may reduce redundant detector calls and change sustained thermal/deadline behavior; detector reduction, throttling, run duration, and DMR limits are all to be established by G3 and tested on the target device.
 
 ---
 
@@ -213,13 +213,13 @@ The RACE-MOT runtime architecture decouples video acquisition, edge inference, a
 ```mermaid
 flowchart TD
     subgraph Input_Layer ["Input & Ingestion Layer"]
-        CAM["Stationary Phone Camera\n(1280x720 @ 15fps H.264)"] -->|RTSP over Private LAN| ADAPT["Input Adapter &\nTimestamp Validator"]
+        CAM["Stationary Phone Camera\n(provisional 1280x720 @ 15fps H.264)"] -->|RTSP over USB-tethered private link| ADAPT["Input Adapter &\nTimestamp Validator"]
         FILE["Offline MOT17 / MOT20\nBenchmark Replay Files"] --> ADAPT
     end
 
     subgraph Decision_Control ["Decision & Scheduling Layer"]
         ADAPT -->|Frame t| SCHED_CHECK{"Controller Command\nfrom Frame t-1"}
-        SCHED_CHECK -->|DETECT| DET["YOLOX-Tiny Engine\n(TensorRT FP16)"]
+        SCHED_CHECK -->|DETECT| DET["YOLOX-Tiny Engine\n(runtime precision pending G1 decision)"]
         SCHED_CHECK -->|SKIP| GUARD_EVAL{"Discovery Guard:\nPeripheral Motion?"}
         GUARD_EVAL -- Yes --> DET
         GUARD_EVAL -- No --> PROP["ByteTrack Predictor\n(Kalman Propagation)"]
@@ -304,7 +304,7 @@ p95(L_{\pi}) &\le D \\
 \text{RAM}_{\text{peak}}(\pi) &\le R_{\max} \\
 T_{\text{sustained}}(\pi) &\le T_{\max}
 \end{aligned}$$
-where $P_{\text{system}}(t)$ represents whole-board power draw (including SoC, DRAM, carrier board, and I/O); $\delta_H$ and $\delta_I$ represent non-inferiority margins; $D$ is the per-frame deadline dictated by stream cadence (e.g., $66.6\text{ ms}$ for $15\text{ FPS}$); and $T_{\max}$ is the SoC thermal threshold before DVFS throttling initiates ($75^\circ\text{C}$).
+where $P_{\text{system}}(t)$ represents the declared Jetson input-power boundary; $\delta_H$ and $\delta_I$ represent non-inferiority margins; $D$ is the end-to-end deadline derived from the selected cadence and frozen at G3; and $T_{\max}$ is the sustained thermal limit selected from device evidence and the use case at G3. These values are currently TBD.
 
 ---
 
@@ -330,24 +330,25 @@ To eliminate data snooping and ensure unbiased evaluation, datasets are strictly
 
 | Dataset / Input Stream | Scale & Characteristics | Dedicated Role | Leakage & Integrity Controls |
 |---|---|---|---|
-| **MOT17 Training Set** [3, 13] | 7 unique source video sequences (5,316 unique video frames; 112,297 ground-truth bounding boxes). Distributed across 21 subfolders corresponding to DPM, Faster R-CNN, and SDP detection files. | Model fitting, probability calibration, threshold selection, and sequence-grouped cross-validation. | Grouped sequence $k$-fold cross-fitting. All 3 detector variants of any source video are locked within the identical fold. Zero frame-level or tracklet-level random splitting. |
+| **MOT17 Training Set** [3, 13] | 7 unique source video sequences (5,316 unique video frames; 112,297 ground-truth bounding boxes). Distributed across 21 subfolders corresponding to DPM, Faster R-CNN, and SDP detection files. | Model fitting, probability calibration, policy validation, and grouped evaluation roles selected before final scoring. | All detector variants of any source video remain in the same role. The exact grouped/cross-fitted allocation is TBD until G2, with no frame-level or tracklet-level random splitting. |
 | **MOT20 Training Set** [4, 14] | 4 extremely crowded sequences (8,931 frames, 1,336,920 annotations; average density of $149.7\text{ pedestrians/frame}$). | Frozen out-of-distribution dense-crowd stress and generalization test. | Kept strictly locked. Zero feature selection, threshold tuning, or calibration parameter fitting on MOT20. Evaluated post-freeze. |
-| **Live Smartphone RTSP Stream** | Real-time video from stationary smartphone (1280×720 @ 15 FPS, H.264, private local Wi-Fi). | Hardware integration, live demonstration, and system fault-injection testing. | Unannotated. Explicitly designated as a demonstration vehicle; benchmark scores are never reported from this unannotated feed. |
+| **Live Smartphone RTSP Stream** | Authorized stationary smartphone feed over private USB tethering; 1280×720 at 15 FPS remains a proposed profile. Current G1 decode evidence observed 1920×1080 with backend cadence metadata deemed unreliable. | Hardware integration, live demonstration, and system fault-injection testing. | Unannotated. Explicitly designated as a demonstration vehicle; benchmark scores are never reported from this unannotated feed. |
 
 ### 7.2 Sequence-Grouped Cross-Fitting Protocol
-Because MOT17 contains only 7 independent scenes, standard random cross-validation results in severe sequence leakage. We enforce **Grouped Sequence Cross-Fitting**:
-- **Fold 1 (Train):** MOT17-02, MOT17-04, MOT17-05, MOT17-09 (4 sequences).
-- **Fold 2 (Calibration):** MOT17-10, MOT17-11 (2 sequences; natural label prevalence).
-- **Fold 3 (Policy Validation):** MOT17-13 (1 sequence; threshold $\tau$ and $S_{\max}$ selection).
-
-Models are permuted across folds such that calibration and threshold selection are performed on sequences never seen during backpropagation.
+Because MOT17 contains only seven independent source scenes, random frame or
+tracklet splitting would leak scene information. The project will use grouped
+or cross-fitted roles so that training, natural-prevalence calibration, policy
+validation, and final evaluation are separated at the source-scene level.
+The exact role permutations and any fixed outer evaluation fold will be frozen
+at G2/G3 before model or policy selection. All detector variants of one source
+scene remain together, and MOT20 remains locked until final transfer scoring.
 
 ---
 
 ## 8. AI/ML Model Design & Feature Engineering
 
 ### 8.1 Model Architecture: Causal 1D Temporal Convolutional Network (TCN)
-The primary risk predictor is a lightweight causal 1D TCN designed for deterministic, sub-millisecond execution on the Jetson Orin Nano.
+The primary risk predictor is a compact causal 1D TCN candidate. Its parameter count and execution cost remain TBD until the model definition and selected device runtime are frozen.
 
 ```
 Input History: X_{i,t} (Dimension: 8 time steps x 18 features)
@@ -369,8 +370,8 @@ Input History: X_{i,t} (Dimension: 8 time steps x 18 features)
 ```
 
 - **Receptive Field:** $H = 8$ historical time steps.
-- **Total Parameter Count:** $\approx 38,400$ parameters ($<160\text{ KB}$ in FP32; $<80\text{ KB}$ in FP16).
-- **Execution Latency:** $0.32\text{ ms}$ per track batch on Jetson Orin Nano CPU/GPU.
+- **Parameter count:** TBD until this exact model definition is implemented and counted.
+- **Execution latency:** TBD until measured per track batch on the selected Jetson configuration; no sub-millisecond target is assumed.
 
 ### 8.2 Comprehensive Feature Dictionary
 For every active track $i$ at frame $t$, the feature extractor compiles an 18-dimensional feature vector $x_{i,t}$:
@@ -410,7 +411,7 @@ Calibration fidelity is evaluated via:
 ## 9. Hardware Manifest & Experimental Protocol
 
 ### 9.1 Edge Hardware & Software Manifest
-All physical edge benchmarks are executed on the following frozen configuration:
+The following inventory is captured for G1; benchmark configuration remains unfrozen:
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────┐
@@ -418,16 +419,17 @@ All physical edge benchmarks are executed on the following frozen configuration:
 ├───────────────────────────────────────────────────────────────────────────────┤
 │ SoC: NVIDIA Orin (Architecture: Ampere GPU, 1024 CUDA Cores, 32 Tensor Cores) │
 │ CPU: 6-core ARM Cortex-A78AE v8.2 64-bit @ 1.5 GHz                            │
-│ Memory: 8 GB 128-bit LPDDR5 (Unified Architecture, Peak Bandwidth: 68 GB/s)  │
-│ Storage: 512 GB NVMe M.2 SSD (PCIe Gen3 x4)                                   │
-│ Operating System: Ubuntu 22.04 LTS / Jetson Linux (L4T R36.2 / JetPack 6.0)   │
-│ Compiler / Runtimes: CUDA 12.2, TensorRT 8.6.2, cuDNN 8.9.4, Python 3.10.12  │
-│ Primary Power Profile: 15W Mode (nvpmodel -m 0; fixed clocks: GPU 625 MHz)   │
-│ Energy Metering: Integrated INA3221 rail telemetry + external USB-C power meter│
+│ Memory: 7.6 GiB; storage and carrier/cooling detail remain to record         │
+│ Operating system / JetPack: Ubuntu 24.04.5 / JetPack 7.2.1                   │
+│ CUDA / TensorRT / Python: CUDA 13.2 / TensorRT 10.16.2 / Python 3.12.3       │
+│ Power mode: 25 W recorded; clocks/cooling frozen before comparison runs       │
+│ Energy: external Jetson-input meter preferred; onboard rails diagnostic only │
 └───────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 9.2 Ordered Engineering & Research Verification Gates
+### 9.2 Proposal-stage sequence
+
+These proposal milestones do not replace the governing G0–G4 gates in the decision log and roadmap.
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────┐
@@ -435,23 +437,25 @@ All physical edge benchmarks are executed on the following frozen configuration:
 ├───────┬───────────────────────────────┬───────────────────────────────────────┤
 │ GATE  │ WORK PRODUCT                  │ PASS CRITERIA BEFORE PROCEEDING       │
 ├───────┼───────────────────────────────┼───────────────────────────────────────┤
-│ **G1**│ Device Manifest & RTSP Probe  │ Exact Jetson inventory captured;      │
-│       │                               │ phone RTSP stream verified (15 FPS).  │
+│ **M1**│ Device Manifest & RTSP Probe  │ Exact Jetson inventory captured;      │
+│       │                               │ phone RTSP behavior and cadence      │
+│       │                               │ recorded; profile remains provisional.│
 ├───────┼───────────────────────────────┼───────────────────────────────────────┤
-│ **G2**│ Baseline Pipeline Feasibility │ YOLOX-Tiny (TensorRT FP16) + ByteTrack│
+│ **M2**│ Baseline Pipeline Feasibility │ Selected YOLOX-Tiny runtime + ByteTrack│
 │       │                               │ runs cleanly; zero memory leakage.    │
 ├───────┼───────────────────────────────┼───────────────────────────────────────┤
-│ **G3**│ Reference Measurement Freeze  │ Detector-every-frame baseline frozen; │
+│ **M3**│ Reference Measurement Freeze  │ Detector-every-frame baseline frozen; │
 │       │                               │ HOTA, IDF1, and Joules/frame logged.  │
 ├───────┼───────────────────────────────┼───────────────────────────────────────┤
-│ **G4**│ Counterfactual Label & TCN    │ Grouped MOT17 labels generated;       │
-│       │                               │ TCN trained; ECE <= 0.08 verified.    │
+│ **M4**│ Counterfactual Label & TCN    │ Grouped MOT17 labels generated;       │
+│       │                               │ TCN trained and calibration evaluated │
+│       │                               │ against predeclared G3 criteria.      │
 ├───────┼───────────────────────────────┼───────────────────────────────────────┤
-│ **G5**│ Closed-Loop Adaptive Scheduler│ Thresholds tau and S_max selected;    │
+│ **M5**│ Closed-Loop Adaptive Scheduler│ Thresholds tau and S_max selected;    │
 │       │                               │ full comparative baselines evaluated. │
 ├───────┼───────────────────────────────┼───────────────────────────────────────┤
-│ **G6**│ Sustained Thermal & Demo Run  │ 20-min live demo completed cleanly;   │
-│       │                               │ zero throttling; package archived.    │
+│ **M6**│ Sustained Thermal & Demo Run  │ Sustained run and live demo completed │
+│       │                               │ under predeclared device criteria.    │
 └───────┴───────────────────────────────┴───────────────────────────────────────┘
 ```
 
@@ -459,7 +463,7 @@ All physical edge benchmarks are executed on the following frozen configuration:
 
 ## 10. Novelty Claims & Contributions (Mapped to University Rubric)
 
-To satisfy the highest evaluative standard of the undergraduate academic rubric, RACE-MOT establishes **three distinct, claimable contributions**:
+For faculty review, RACE-MOT presents one primary methodological claim and two supporting evaluation dimensions. Whether the method is a contribution beyond prior work remains to be established by direct comparison and measured evidence:
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────┐
@@ -483,19 +487,19 @@ To satisfy the highest evaluative standard of the undergraduate academic rubric,
 
 ### Contribution 1: Novel Problem Formulation & Enhanced Preprocessing
 *(Category: Novel problem formulation or application & Enhanced data preprocessing)*
-- **The Domain Breakthrough:** Existing frame schedulers rely on heuristic confidence decays (RT-MOT), static timers (EMO), or global sequence surrogates (HSFSO). We formulate the first **online, causal, per-track avoidable identity failure target ($Y_{g,t}^{(K,M)}$)** that explicitly isolates failures caused by skipping that a detector invocation would avoid.
+- **The Proposed Method Claim:** Existing frame schedulers use varied heuristics, surrogates, or association objectives. We propose an **online, causal, per-track avoidable identity failure target ($Y_{g,t}^{(K,M)}$)** that isolates failures caused by skipping that a detector invocation would avoid. The claim is not described as first until the literature review and direct comparisons support that wording.
 - **The Data Pipeline Innovation:** An automated, counterfactual paired-rollout data generation engine that forks tracker state on MOT17 annotations offline, creating an unbiased, leak-free training corpus.
 
 ### Contribution 2: Improved AI Model & Feature Engineering
 *(Category: An improved AI model or hybrid approach & Feature engineering optimization)*
-- **The Model Breakthrough:** Rather than paying the massive compute penalty of deep CNN Re-ID networks (DeepSORT, BoT-SORT) on edge devices, we design an ultra-compact causal 1D TCN ($<40\text{k}$ parameters, $<0.35\text{ ms}$ latency).
-- **The Algorithmic Rigor:** Fuses 18 asymmetric kinematic, Kalman covariance, and lifecycle features into a statistically calibrated probability ($q_{i,t}$) validated via Brier Score and ECE, replacing arbitrary heuristics with mathematically grounded scheduling thresholds.
+- **Model and Feature Evaluation:** We will compare a compact causal 1D TCN with matched temporal and static baselines. Parameter count, latency, calibration, and policy value will be measured rather than promised.
+- **Algorithmic Evaluation:** The candidate model fuses causal kinematic, Kalman covariance, and lifecycle features into a score that is calibrated only if held-out Brier/ECE tests support probability interpretation.
 
 ### Contribution 3: Explainable Edge Deployment & Physical Benchmarking
 *(Category: Explainable AI component, deployment framework, or practical real-world implementation)*
-- **The Deployment Breakthrough:** A fully operational edge prototype running natively on an NVIDIA Jetson Orin Nano receiving live video over private Wi-Fi from a smartphone, with zero cloud dependency.
-- **Explainability (XAI):** Every single compute escalation or skip is logged and displayed in real time with an auditable reason code (`RISK_EXCEEDED`, `MAX_SKIP_EXCEEDED`, `GUARD_OVERRIDE`), providing total transparency.
-- **Physical Validation:** Measures empirical Joules per input frame across physical power rails over sustained thermal runs, proving that the energy saved by skipping significantly exceeds the overhead of the risk model.
+- **Deployment and Evaluation Evidence:** The product target is a local Jetson prototype receiving authorized IP Webcam video over USB tethering without cloud runtime dependencies. Completion, latency, thermal behavior, and energy availability will be reported from the actual device.
+- **Auditability:** Each planned and executed action is intended to log a reason code (for example `RISK_EXCEEDED`, `MAX_SKIP_EXCEEDED`, or `GUARD_OVERRIDE`) together with calibration status and timing. Logging is an audit feature, not a claim of causal explainability or total transparency.
+- **Physical Measurement:** If a suitable external meter is available, report complete-pipeline Joules per input frame with onboard rail telemetry separately. Do not claim energy savings until a matched baseline and constraints are measured.
 
 ---
 

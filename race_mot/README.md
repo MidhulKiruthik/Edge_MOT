@@ -22,7 +22,7 @@ race-mot inventory --output reports/device_inventory.json
 race-mot probe --input "rtsp://PHONE_LAN_ADDRESS:PORT/STREAM" --duration-sec 30 --output reports/phone_stream_probe.json
 ```
 
-Keep credentials out of command history. Use the phone and Jetson on the same private Wi-Fi/hotspot. The probe reports a redacted input identifier, dimensions, reported source FPS, measured read rate, read errors, and interval percentiles. It does not guarantee real-time MOT performance. The initial camera profile is 1280x720, H.264, 15 fps if the phone app supports it.
+Keep credentials out of command history. Enable USB tethering and IP Webcam, identify the Jetson's USB-network address, and use the resulting private local link. The probe reports a redacted input identifier, dimensions, reported source FPS, measured read rate, read errors, and interval percentiles. It does not guarantee real-time MOT performance. The initial camera profile is 1280x720, H.264, 15 fps if the phone app supports it.
 
 ## Local implementation slice
 
@@ -44,8 +44,47 @@ python tests/test_core.py -v
 
 These commands do not claim detector feasibility, tracking quality, calibration, or energy savings. Those remain gated by the actual-device baseline and G3 measurement contract.
 
+## G1 FP32 detector smoke check
+
+The current JetPack/TensorRT stack builds YOLOX-Tiny only through the documented
+FP32 diagnostic path; FP16 engine generation is blocked and remains a separate
+compatibility issue. The smoke command reads a bounded number of authorized
+frames, letterboxes them in memory, executes the engine, checks output values
+for finiteness, and writes no decoded, preprocessed, or annotated frame.
+
+```bash
+race-mot detector-smoke --input-env RACE_MOT_RTSP_URL \
+  --engine models/provisional/yolox_tiny_fp32_diagnostic.engine \
+  --frames 10 --output reports/NEW_RUN/detector_smoke.json
+```
+
+This validates only the engine and I/O path. It does not decode YOLOX proposals,
+apply NMS, establish person detections, run ByteTrack, or measure latency,
+throughput, tracking, energy, or thermal behavior.
+
 ## Next implementation milestone
 
 After the device and stream are verified, add the every-frame YOLOX-Tiny + ByteTrack baseline, then the result log and local dashboard. Freeze the exact detector checkpoint, its terms, TensorRT export, tracker version, and end-to-end measurement boundary before claiming a baseline. Only after that should the calibrated risk predictor and binary detect/skip policy be implemented. Preserve actual timestamps and source-frame gaps; compare an ALBIREO-like object-wise uncertainty scheduler; then add and measure the scene-discovery guard, which may upgrade a planned skip to a full-frame detector call. The guard is retained only if its new-track discovery benefit justifies its false triggers and system cost.
 
 See [the product documentation](../product_docs/README.md), [the implementation gate](../product_docs/08_decisions_and_pre_code_gate.md), and the [Software Design Document](SDD.md) for scope, acceptance criteria, and planned module contracts. The working technical plan is [the research report](../deep_research_mot_edge_merged.md).
+
+## G1 probe evidence and private input
+
+Use `--input-env RACE_MOT_RTSP_URL` after setting that variable privately in the
+launching shell; this keeps the URL out of the CLI argument list. Decoder backend
+errors may still expose source details, so keep raw diagnostics private.
+Reports refuse existing output paths. Use a fresh dated directory for each run.
+
+```bash
+race-mot probe --input-env RACE_MOT_RTSP_URL --duration-sec 30 --output reports/NEW_RUN/phone.json
+race-mot probe --input /authorized/clip.avi --duration-sec 30 --output reports/NEW_RUN/file.json
+```
+
+Reports include `stop_reason`, reported frame count, and decoder position/timestamp
+sample counts, first/last values, repeats, and regressions. `expected_file_end`
+means a local file reached its reported frame count; this is metadata-based and
+not a corruption guarantee. Unknown-length and early failures remain
+`read_failure`. Decoder positions do not prove camera frame order or source drops;
+constant timestamps may mean unsupported metadata. Reconnect is not implemented,
+and default-backend reads may exceed the requested duration. The probe saves no
+frames and supplies no tracking or energy result.

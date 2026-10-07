@@ -4,22 +4,22 @@
 
 **Project outcome:** A local, single-camera pedestrian-tracking prototype on the available Jetson Orin Nano, accompanied by a reproducible evaluation package. A conference paper is optional and depends on the resulting evidence.
 
-**Status on 6 October 2026:** The product direction and documentation scaffold are in place. The scaffold's inventory and stream-probe utilities have not yet been run on the target Jetson. The detector/tracker baseline, counterfactual labels, risk model, adaptive policy, and measured results are pending. G4 pre-code approval has **not** been passed.
+**Status on 7 October 2026:** Device inventory and USB-tethered H.264/RTSP decode evidence exist in private reports (D-28). The official YOLOX-Tiny ONNX model parses on TensorRT 10.16.2 but its bounded FP16 engine build fails with an internal TensorRT timing-model assertion (D-29). Stream cadence/drop and interruption/reconnect checks, authorized MOT replay, a viable detector runtime, and ByteTrack feasibility remain open. Phase 0 has outstanding documentation reconciliation. G4 pre-code approval has **not** been passed.
 
 ## Current gate status and next actions
 
 | Gate | Current state | What closes it |
 |---|---|---|
 | G0 - Product definition | Accepted in the current product documents | Reopen only through a recorded scope decision |
-| G1 - Feasibility | Open; Orin Nano family and phone-stream direction are selected, exact device and stream behavior are unverified | Actual-device inventory, no-save phone stream probe, local-file decode check, and candidate detector/tracker feasibility evidence |
+| G1 - Feasibility | Partially evidenced; device inventory and USB H.264/RTSP decode captured; YOLOX-Tiny ONNX parses and an FP32 diagnostic engine executes, but FP16 TensorRT engine creation is blocked; input robustness, MOT replay, and tracker runtime remain open | Stream interruption/reconnect and file-decode reports, an approved detector precision/runtime path, and isolated ByteTrack feasibility evidence |
 | G2 - Data and responsible use | Open | Dataset terms/manifest, sequence split plan, phone-footage authorization, privacy and retention decisions |
 | G3 - Measurement contract | Open; no baseline or numeric acceptance limits | Same-device every-frame baseline, declared measurement boundary, and approved limits derived from baseline evidence |
 | G4 - Pre-code approval | Not passed | Required documents consistent, blockers resolved or explicitly deferred, verification mapped, and required sign-off recorded |
 
 **Do next, in order:**
 
-1. Run the existing inventory utility on the physical Jetson and save its device/software manifest.
-2. Run the no-save RTSP probe with the phone on the private local network; separately verify local MOT-file decoding.
+1. Complete the existing device manifest with carrier/cooling details and candidate detector/tracker provenance. Preserve prior reports.
+2. Verify stream cadence/drop and interruption/reconnect behavior after the successful USB RTSP probe; obtain authorized MOT input and verify local decoding.
 3. Confirm data-use and footage permissions, and reconcile the faculty pitch's unmeasured numeric claims before presenting it as a specification.
 
 These are feasibility and planning tasks. Full MVP implementation starts only after G4. Adaptive scheduling and energy-saving claims additionally wait for G3.
@@ -46,7 +46,7 @@ These are feasibility and planning tasks. Full MVP implementation starts only af
 
 ### Pitch claim reconciliation required in Phase 0
 
-The current pitch includes TCN size/latency statements that disagree (`<80k` parameters and `<0.4 ms` versus `<40k` and `<0.35 ms`), a separate parameter count, unmeasured detector timing/compute-share figures, specific Orin power-mode statements, and wording that says energy savings are already proven. Before faculty submission:
+Earlier pitch revisions contained conflicting parameter and latency claims. The current pitch still needs a complete claim audit, consistent gate numbering, and reconciliation of feature/calibration contracts. Before faculty submission:
 
 - Replace unmeasured timings, compute shares, and energy outcomes with `TBD` or clearly marked hypotheses; do not retain them as promised specifications.
 - Reconcile hardware and power-mode details against the exact Orin Nano SKU, installed JetPack, and official NVIDIA documentation. Do not copy AGX Orin or other-module figures onto this board.
@@ -62,6 +62,176 @@ The current pitch includes TCN size/latency statements that disagree (`<80k` par
 - `S_max`: maximum consecutive detector skips.
 - `D`: end-to-end deadline derived from the selected input cadence/use case and recorded at G3.
 - `DMR`: deadline-miss rate. A source frame that never reaches the pipeline is tracked separately as an input drop.
+
+## How to execute this roadmap in this project
+
+This section converts the phase checklist into an implementation procedure for the current repository. The commands assume a shell on the Jetson unless marked `Windows`. Run them from `edge/race_mot`. Keep `reports/`, `runs/`, model files, credentials, and private footage local; commit only source code, non-secret configs, manifests that contain no private identifiers, and documentation.
+
+### Working rules
+
+1. Create one dated working directory for each gate or experiment, for example `reports/2026-10-07-g1/` and `runs/2026-10-07-baseline-mot17-02/`. Never overwrite a report or run.
+2. Before every hardware or benchmark run, record the Git revision, config path, model hash, tracker version, device manifest, power mode, input source, warm-up duration, and operator initials in the run manifest.
+3. Use the existing dependency-free tests as the first check after every code change:
+
+    ```bash
+    cd edge/race_mot
+    python -m unittest discover -s tests -v
+    python -m race_mot.cli validate-config --config configs/baseline.json
+    ```
+
+    The installed console command `race-mot` is equivalent after `python -m pip install -e .`. If a command does not exist yet, add it only when its phase begins; do not create a fake command that produces incomplete evidence.
+4. Every experiment has four files: `manifest.json` (inputs and hashes), `config.json` (frozen settings), `frames.jsonl` or `metrics.csv` (row-level evidence), and `summary.json`/`summary.md` (derived results and failures). Store plots beside the summary and keep the script that generated them.
+5. Treat `TBD` as a blocked value. A run may measure a provisional value, but it may not be used to close a gate until the corresponding decision is recorded and the value is frozen.
+6. Separate three clocks in every runtime record: source timestamp, local frame-arrival time, and detector/pipeline completion time. Separately count source input drops, detector skips, and frames that miss the deadline.
+
+### Repository build order
+
+Implement the runtime in this order. Each item must pass its local tests before the next item is started.
+
+| Order | Location | What to implement | Local proof |
+|---|---|---|---|
+| 1 | `src/race_mot/sources/` | File and RTSP adapters that emit `FramePacket` and explicit end/loss/error states | Replay a short file and assert source indices, timestamps, and drop counters |
+| 2 | `src/race_mot/detectors/` | YOLOX reference/TensorRT adapter with original-frame coordinate restoration | Golden detections on a fixed clip; reference versus engine tolerance report |
+| 3 | `src/race_mot/trackers/` | Pinned ByteTrack wrapper with `initialize`, `update`, `skip`, and `reset` | Same detections produce stable IDs; empty detection and skip remain distinct |
+| 4 | `src/race_mot/logging/` and `telemetry/` | Manifest, append-only frame records, summaries, Jetson telemetry | Restart and disk/error tests; no image or credential fields in logs |
+| 5 | `src/race_mot/application.py` | Sequential baseline orchestrator and clean lifecycle | Detector-every-frame file replay reaches a complete summary |
+| 6 | `src/race_mot/web/` | Local dashboard backed by a non-blocking snapshot | Dashboard cannot block inference; bind address is explicit and tested |
+| 7 | `src/race_mot/evaluation/` | Rollouts, grouped splits, metrics, calibration, statistics | Tiny synthetic fixture plus one permitted MOT sequence |
+| 8 | `src/race_mot/risk/` and `policy/` | Causal features, predictor, calibrators, scheduler, guard | Unit tests for causality, invalid risk, max skips, and guard upgrade |
+
+Do not start with the TCN or dashboard. The first complete implementation target is a deterministic detector-every-frame file replay. The adaptive path is enabled only after G3.
+
+### Phase-by-phase execution cards
+
+#### Phase 0: reconcile and freeze the plan
+
+1. Read the nine product documents and SDD into a one-page traceability table with columns `ID`, `requirement/decision`, `owner module`, `verification command or test`, `evidence path`, and `status`.
+2. Search the faculty pitch for every number, result verb, and superlative. Mark each as `cited`, `measured`, `proposal target`, or `TBD`; replace unsupported results with proposal wording.
+3. Record unresolved choices in `product_docs/08_decisions_and_pre_code_gate.md` before editing downstream documents. At minimum resolve detector checkpoint, ByteTrack source, MOT version/terms, exact split roles, dashboard bind address, and raw-footage handling.
+4. Add only non-secret baseline defaults to `configs/baseline.json`. Put private RTSP values in an environment variable, never in JSON or shell history.
+
+**Phase output:** `reports/phase0/traceability.csv`, reconciled pitch, updated decision log, and a signed or explicitly deferred G4 checklist. The phase is complete when each G4 checkbox has a verifiable owner and evidence location.
+
+#### Phase 1: verify the Jetson and inputs
+
+1. On the Jetson, create the environment with system packages visible, install this package editable, and run the existing inventory command. Save the output under a dated report directory. Capture the exact module/SKU, RAM, JetPack/L4T, CUDA, TensorRT, Python, OpenCV backend, power mode, clocks, cooling, storage, and telemetry availability.
+2. Run the existing no-save probe against the phone stream for at least 30 seconds. Redact the source identifier before sharing the report. Repeat once after a controlled USB-network interruption and record reconnect behavior separately.
+3. Run `inspect-mot` against an authorized local MOT annotation and decode a short local video without writing frames. Compare frame count/order and timestamps with the source metadata.
+4. Perform a bounded detector smoke check: load the candidate checkpoint, run batch-one inference on ten permitted frames, and record load time, per-stage time, output shape, person detections, memory, and errors. This is feasibility evidence, not an FPS or quality claim.
+5. If TensorRT conversion fails, save the full error and installed versions, diagnose an operator/version mismatch, and update the decision log before changing detector families.
+
+```bash
+race-mot inventory --output reports/2026-10-07-g1/device_inventory.json
+race-mot probe --input-env RACE_MOT_RTSP_URL --duration-sec 30 --output reports/2026-10-07-g1/phone_stream_probe.json
+race-mot inspect-mot --gt /authorized/MOT17-02-FRCNN/gt/gt.txt
+```
+
+**Phase output:** device manifest, stream report, local-file decode report, detector/tracker smoke note, and a list of blockers. Do not report tracking quality, real-time performance, or energy at this phase.
+
+#### Phase 2: freeze data, privacy, and labels
+
+1. Create `data/manifest.json` locally with source name/version, terms location, checksum, sequence path, source-scene group, and assigned role. Group MOT17 detector variants by source scene before splitting.
+2. Create `data/roles.json` with train, calibration, policy-validation, and final-evaluation roles. Keep MOT20 outside all fitting and selection operations.
+3. Implement the paired rollout as a pure offline function. Clone the tracker state at anchor frame `t`; branch A skips detector at `t+1`, branch B detects; then run detector-every-frame for the next `K-1` frames. Assert that both branches begin from identical serialized state and use the same future frames.
+4. Implement the label predicate in `evaluation/labels.py` using frozen `alpha`, `M`, visibility, persistence, identity matching, and boundary-censor rules. Return `positive`, `safe_negative`, `ineligible`, or `censored`; never coerce the last two to negative.
+5. Write a small audit file with hand-checked ordinary motion, crossing, occlusion, entry, exit, re-entry, and boundary cases. Compare generated labels to the expected outcomes in tests.
+6. Record local-footage authorization before using the phone around people. Keep raw video transient, use temporary IDs, disable face crops/embeddings, and test that default logs contain no frame payload.
+
+**Phase output:** source/terms manifest, grouped split manifest, frozen label protocol and pseudocode, audited fixture results, privacy decision, and exclusion/prevalence report.
+
+#### Phase 3: close G4 and lock contracts
+
+1. Walk the traceability table with the supervisor. For each open item choose `closed`, `deferred with owner/date`, or `removed from MVP`; do not leave an unqualified TBD.
+2. Freeze the JSON configuration schema and add validation for model hash, tracker version, source kind, output path, policy fields, measurement fields, and privacy/export flags.
+3. Freeze the runtime records from the SDD: `FramePacket`, `Detection`, `TrackSnapshot`, schedule state, decision, frame log, and run manifest. Add schema-version fields so later analysis can reject incompatible records.
+4. Write the acceptance test matrix before implementation: input, expected action/state, evidence file, and pass/fail rule. Include clean stop, restart, stream loss, invalid input, detector failure, disk-full, and credential-redaction cases.
+5. Sign and date the gate in the decision log. Until this exists, only G1 feasibility code and hardware-independent contract tests are permitted.
+
+**Phase output:** signed G4 checklist, frozen config/schema, traceability matrix, acceptance matrix, dependency/license record, and implementation branch/tag.
+
+#### Phase 4: build the deterministic baseline
+
+1. Implement the source adapters first and test them on files. Preserve original source indices; never renumber after a drop. RTSP reconnect must emit a visible event and never silently turn a missing frame into a normal frame.
+2. Implement the detector adapter with separate preprocessing, inference, postprocessing, and coordinate-mapping timers. Save a golden input/output fixture from the reference runtime before TensorRT conversion.
+3. Wrap ByteTrack behind the SDD API. Verify `update([])` means detector ran with no accepted person and `skip()` means detector did not run. Reset all state at sequence boundaries and run starts.
+4. Implement the sequential orchestrator. In baseline mode every received frame executes DETECT, then tracker update, history update, logging, and output. Keep queue limits bounded and make stop/restart idempotent.
+5. Add manifest and JSONL logging before the dashboard. Log actions, reasons, timestamps, counters, timings, track state, errors, and telemetry; never log raw frames, secrets, or persistent identities.
+6. Replay a short file repeatedly and compare hashes/counts of detections, tracks, and frame records. Only after this is stable, connect the phone source.
+
+**Phase output:** repeatable file replay, fixed detector/tracker evidence, run manifest, frame log, summary, and failure/restart test results. No adaptive policy.
+
+#### Phase 5: measure baseline and close G3
+
+1. Warm up the Jetson, fix power mode/cooling/input cadence, and run the same MOT sequences in the same order for the planned repetitions. Record all environment settings in each manifest.
+2. Evaluate tracking with a pinned TrackEval path and report HOTA, DetA, AssA, IDF1, MOTA, ID switches, fragmentation, and detector diagnostics. Keep phone results as integration evidence, not benchmark evidence.
+3. Measure from frame arrival through emitted tracks and required log/UI status. Report component times, queue depth, p50/p95 latency, throughput, DMR, and input drops separately.
+4. Measure whole-pipeline energy at the declared input boundary using the external meter when available. Divide by every input frame, including frames where a later policy might skip detection. Store onboard telemetry as a separate diagnostic series.
+5. Run sustained tests long enough to reveal thermal behavior. Record peak RAM, temperature, clocks, throttling, warm-up, ambient, fan/cooling, and power mode.
+6. Derive `D`, quality margins, DMR/RAM/thermal limits, repetitions, and minimum useful energy reduction from this pilot and product cadence. Freeze them before policy validation.
+
+**Phase output:** baseline report, raw timing/energy/telemetry traces, metric summary, repetition protocol, approved G3 limits, and updated requirements.
+
+#### Phase 6: generate paired learning data
+
+1. Run the frozen detector/tracker on the selected MOT17 sequences and save versioned anchor states, detections, tracker state, timestamps, and hashes.
+2. Generate paired rollouts only from eligible anchors. Serialize branch configuration and initial-state hash so a label can be reproduced without hidden runtime state.
+3. Run duplicate-frame, sequence-leakage, boundary-censor, and label-prevalence checks. Produce per-source-scene counts and an audit sample.
+4. Fit normalization/class weighting only on training roles. Preserve natural prevalence in calibration and policy-validation roles. Include varied prior skip histories as generated runtime states.
+5. Freeze detector-gap bins and keep source drops, frame subsampling, and policy skips as separate conditions.
+
+**Phase output:** reproducible rollout dataset, label manifest, audit report, grouped roles, and leakage checks. No model selection on MOT20.
+
+#### Phase 7: train and calibrate the risk model
+
+1. Build a feature extractor that accepts only current/past state: box geometry/velocity, elapsed seconds, source-frame gap, skip count, Kalman residual/covariance, confidence/association history, age/misses, and local overlap.
+2. Assert causality with a test that changing a future frame cannot change features at anchor `t`. Normalize using training statistics saved with a hash.
+3. Train the causal TCN first, then matched GRU, temporal MLP, static, confidence-only, and Kalman-only baselines. Use grouped roles and at least three seeds for final comparisons.
+4. Fit per-track Platt/isotonic calibration on the calibration role. Aggregate with `max_i(q_i)` and fit a separate frame-level calibrator; never reuse the per-track map for frame scores.
+5. Select model/configuration using policy-validation results and predictor overhead, not test results. Measure parameter count from the actual frozen model and measure latency/memory/energy on the Jetson.
+
+**Phase output:** model/checkpoint hashes, seed/config manifests, calibration files, prediction metrics, reliability plots, device overhead report, and a model-selection decision.
+
+#### Phase 8: implement and compare the risk-only scheduler
+
+1. Implement the scheduler as a pure state transition around the existing `DetectorAction`, `DecisionReason`, and policy contracts. First frame, no tracks, invalid risk, threshold crossing, and `S_max` always force DETECT.
+2. Plan the next action only after the current frame is processed. At the next frame, record planned action, executed action, and any guard override as separate fields.
+3. Choose `tau` and `S_max` on policy-validation sequences under frozen G3 limits. Include predictor, calibration, tracker, logging, and UI costs in energy and latency.
+4. Implement matched baselines with the same detector, tracker, source frames, device, power mode, output, and measurement boundary: every-frame, fixed interval, confidence-only, Kalman uncertainty, static learned risk, EMO-like, RT-MOT-like, ALBIREO-like, and HSFSO where reproducible.
+5. Label each comparator as reproduction, adaptation, or approximation. Record departures and do not compare unmatched published FPS/AP numbers to this project result.
+
+**Phase output:** frozen policy config, action/reason logs, comparator matrix, policy-validation report, and risk-only held-out result. Do not add the guard until this report exists.
+
+#### Phase 9: add only justified guard/ablations/stress
+
+1. Reuse one per-frame low-resolution scene descriptor for context and discovery guard where possible; time it independently. The guard may only upgrade SKIP.
+2. Define entrant cases before evaluation. Measure acquisition delay/recall, censored events, false overrides per 1,000 frames, tracking metrics, latency, and complete-pipeline energy.
+3. Compare risk-only and risk-plus-guard. Remove the guard if the incremental discovery value does not justify cost or false triggers.
+4. Run feature-group, context-fusion, MOT20 transfer, brightness/contrast, blur, compression, and timestamp-preserving subsampling experiments from predeclared configs. Keep input drops distinct from policy skips.
+5. Run quantization last, recalibrate each variant, and compare detector diagnostics, tracking, calibration, latency, energy, RAM, and thermal behavior.
+
+**Phase output:** ablation/stress matrix, guard decision, held-out transfer report, and removed-feature/guard record where applicable.
+
+#### Phase 10: final statistics and claims
+
+1. Freeze all code/config/model hashes and execute the planned repeated runs: at least three learned-model seeds and five warm-up-separated hardware runs per finalist when resources permit.
+2. Pair policies by sequence/run condition. Use sequence-aware resampling or grouped confidence intervals; never treat frames as independent observations.
+3. Generate the results package from raw traces, not manually edited spreadsheets: tracking, calibration, energy per all input frames, latency, DMR, drops, RAM, temperature, clocks, throttling, and Pareto plots.
+4. Write a claim table with columns `claim`, `evidence`, `hardware/data scope`, `uncertainty`, and `allowed wording`. Explicitly state when no policy meets every frozen constraint.
+
+**Phase output:** reproducible tables/plots, uncertainty estimates, claim/limitation record, and raw-trace archive.
+
+#### Phase 11: product acceptance and handoff
+
+1. Execute the acceptance matrix on the Jetson: start/pause/stop/restart, RTSP loss/reconnect, invalid input, decoder/model failure, disk/log failure, clean shutdown, dashboard access, and opt-in export.
+2. Check every release run for manifest linkage, temporary IDs, no raw video by default, redacted credentials, no face/embedding data, and correct retention cleanup.
+3. Prepare installation steps, a live phone demo, a recorded-file fallback, known failure cases, limitations, architecture figure, and results slides. Test the backup path before the demonstration.
+4. Package source/configuration without restricted data and include model/code/data terms and cleanup instructions.
+
+**Phase output:** signed product acceptance, release/evidence package, demo script, setup guide, known-limitations list, and independent method-acceptance result.
+
+### Definition of done for a phase
+
+A phase is done only when its code (if any), tests, configuration, raw evidence, derived report, and decision-log update exist together. A passing unit test does not close a hardware or research gate; conversely, a negative policy result is valid evidence and should be recorded rather than hidden by changing thresholds after the fact.
 
 ## Phase 0 - Reconcile documents and freeze the working scope
 
@@ -80,7 +250,7 @@ The existing inventory and stream-probe utilities are scaffolding, not evidence.
 
 - [ ] Run device inventory on the physical Orin Nano. Record exact model/SKU, RAM, carrier, OS/JetPack, Jetson Linux, CUDA/TensorRT, Python/PyTorch, power mode, clocks, cooling, storage, and available telemetry.
 - [ ] Preserve the installed image for the initial feasibility check. Do not reflash or replace system OpenCV as the first troubleshooting step.
-- [ ] Connect the stationary phone and Jetson to the same private Wi-Fi/hotspot. Probe H.264/RTSP; 1280x720 at 15 input frames/s is a starting profile only if the phone supports it.
+- [ ] Enable USB tethering between the stationary phone and Jetson and verify the USB network interface. Probe H.264/RTSP; 1280x720 at 15 input frames/s is a starting profile only if the phone supports it.
 - [ ] Run the no-save probe. Record dimensions, reported/measured cadence, timestamp behavior, read interval, drops, reconnect behavior, and a redacted source identifier. Keep credentials out of command history and logs.
 - [ ] Decode an authorized MOT file locally and verify frame order and timestamps.
 - [ ] Establish whether the candidate detector/checkpoint and ByteTrack can plausibly run on the exact board. Record evidence and any blockers; do not infer feasibility from a different Jetson model.

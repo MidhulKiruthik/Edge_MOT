@@ -63,8 +63,8 @@ def _open_capture(cv2: object, source: str) -> tuple[object, str]:
 
 def probe_source(source: str, duration_sec: float) -> dict[str, object]:
     """Measure frame-read behavior for a local file or camera stream."""
-    if duration_sec <= 0:
-        raise ValueError("duration_sec must be positive")
+    if not math.isfinite(duration_sec) or duration_sec <= 0:
+        raise ValueError("duration_sec must be finite and positive")
 
     try:
         import cv2  # type: ignore[import-not-found]
@@ -78,31 +78,56 @@ def probe_source(source: str, duration_sec: float) -> dict[str, object]:
         capture.release()
         raise RuntimeError("Could not open input. Check the URL/path, network, and decoder support.")
 
-    # The backend may ignore buffer size; record the actual backend in the report.
-    if source.lower().startswith(("rtsp://", "rtsps://")):
-        capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-
-    reported_fps = float(capture.get(cv2.CAP_PROP_FPS))
-    width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    started = time.perf_counter()
-    deadline = started + duration_sec
-    read_times: list[float] = []
-    read_intervals: list[float] = []
-    last_read: float | None = None
-    read_errors = 0
-    frames_read = 0
-
     try:
+        # The backend may ignore buffer size; record the actual backend in the report.
+        if source.lower().startswith(("rtsp://", "rtsps://")):
+            capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+        is_network = source.lower().startswith(("rtsp://", "rtsps://", "http://", "https://"))
+        reported_count = float(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        expected_count = int(reported_count) if math.isfinite(reported_count) and reported_count > 0 else None
+        observations = {
+            name: {"samples": 0, "first": None, "last": None, "repeats": 0, "regressions": 0}
+            for name in ("frame_position", "timestamp_ms")
+        }
+        stop_reason = "duration_limit"
+        reported_fps = float(capture.get(cv2.CAP_PROP_FPS))
+        width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        started = time.perf_counter()
+        deadline = started + duration_sec
+        read_times: list[float] = []
+        read_intervals: list[float] = []
+        last_read: float | None = None
+        read_errors = 0
+        frames_read = 0
+
         while time.perf_counter() < deadline:
             before = time.perf_counter()
             ok, frame = capture.read()
             after = time.perf_counter()
             read_times.append(after - before)
             if not ok or frame is None:
-                read_errors += 1
+                if not is_network and expected_count is not None and frames_read >= expected_count:
+                    stop_reason = "expected_file_end"
+                else:
+                    stop_reason = "read_failure"
+                    read_errors += 1
                 break
             frames_read += 1
+            for name, prop in (("frame_position", cv2.CAP_PROP_POS_FRAMES),
+                               ("timestamp_ms", cv2.CAP_PROP_POS_MSEC)):
+                value = float(capture.get(prop))
+                if not math.isfinite(value) or value < 0:
+                    continue
+                item = observations[name]
+                if item["last"] is not None:
+                    item["repeats"] += int(value == item["last"])
+                    item["regressions"] += int(value < item["last"])
+                else:
+                    item["first"] = value
+                item["last"] = value
+                item["samples"] += 1
             height, width = frame.shape[:2]
             if last_read is not None:
                 read_intervals.append(after - last_read)
@@ -119,6 +144,9 @@ def probe_source(source: str, duration_sec: float) -> dict[str, object]:
         "resolution": {"width": width, "height": height},
         "reported_source_fps": reported_fps if reported_fps > 0 else None,
         "frames_read": frames_read,
+        "reported_frame_count": expected_count,
+        "stop_reason": stop_reason,
+        "decoder_observations": observations,
         "measured_read_fps": frames_read / elapsed,
         "read_errors": read_errors,
         "stopped_on_read_failure": read_errors > 0,
@@ -134,7 +162,9 @@ def probe_source(source: str, duration_sec: float) -> dict[str, object]:
             "RTSP timeouts are requested only when OpenCV exposes FFmpeg timeout parameters; backend behavior must be verified on the target JetPack image.",
             "The default OpenCV backend may not enforce a hard read timeout.",
             "Read rate is input/decode behavior only; it is not detector, tracker, or end-to-end pipeline FPS.",
-            "RTSP timestamps and camera cadence must be verified against the phone app configuration.",
+            "Decoder positions/timestamps are observations, not proof of source ordering or camera cadence; repeated zero values may mean unsupported metadata.",
+            "Expected file end relies on reported frame count; unknown-length or early read failure cannot distinguish EOF from corruption.",
+            "No reconnect is attempted; input drops cannot be inferred from decoder read counts.",
             "No frames are written to disk by this probe.",
         ],
     }
@@ -143,4 +173,5 @@ def probe_source(source: str, duration_sec: float) -> dict[str, object]:
 def write_probe_report(source: str, duration_sec: float, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     report = probe_source(source, duration_sec)
-    path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    with path.open("x", encoding="utf-8") as handle:
+        handle.write(json.dumps(report, indent=2) + "\n")

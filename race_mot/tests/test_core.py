@@ -12,6 +12,8 @@ from race_mot.domain import (
 )
 from race_mot.evaluation.labels import RolloutFailure, avoidable_failure_label
 from race_mot.evaluation.mot import group_by_frame, read_gt
+from race_mot.detector_smoke import DetectorSmokeConfig
+from race_mot.inventory import _hwmon_devices, _thermal_zones
 from race_mot.policy import BinaryScheduler, SchedulerConfig
 
 
@@ -76,6 +78,14 @@ class CoreContractsTests(unittest.TestCase):
     def test_frame_risk_uses_max_and_preserves_empty_state(self) -> None:
         self.assertEqual(aggregate_frame_risk({1: 0.2, 2: 0.7}), 0.7)
         self.assertIsNone(aggregate_frame_risk({}))
+
+    def test_inventory_optional_sysfs_sources_are_safe_when_absent(self) -> None:
+        self.assertIsInstance(_thermal_zones(), dict)
+        self.assertIsInstance(_hwmon_devices(), dict)
+
+    def test_detector_smoke_requires_at_least_one_frame(self) -> None:
+        with self.assertRaises(ValueError):
+            DetectorSmokeConfig(Path("engine.plan"), 0)
 
 
 if __name__ == "__main__":

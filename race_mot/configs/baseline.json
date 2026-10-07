@@ -15,7 +15,7 @@
     "engine_path": null,
     "checkpoint_sha256": null,
     "input_size": [416, 416],
-    "precision": "fp16",
+    "precision": "fp32",
     "batch_size": 1
   },
   "tracker": {
