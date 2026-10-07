@@ -54,6 +54,7 @@ def _parser() -> argparse.ArgumentParser:
     smoke.add_argument("--frames", type=int, default=10)
     smoke.add_argument("--confidence", type=float, default=0.3)
     smoke.add_argument("--nms-iou", type=float, default=0.45)
+    smoke.add_argument("--reference-onnx", type=Path)
     smoke.add_argument("--output", type=Path, help="JSON output path; defaults to stdout")
 
     validate = commands.add_parser(
@@ -94,6 +95,7 @@ def main() -> int:
                     args.frames,
                     args.confidence,
                     args.nms_iou,
+                    args.reference_onnx,
                 ),
             )
         elif args.command == "validate-config":

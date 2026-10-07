@@ -60,6 +60,7 @@ race-mot detector-smoke --input-env RACE_MOT_RTSP_URL \
   --frames 10 --output reports/NEW_RUN/detector_smoke.json
 race-mot detector-smoke --mot-sequence data/mot17/MOT17-02-FRCNN \
   --engine models/provisional/yolox_tiny_fp32_diagnostic.engine \
+  --reference-onnx models/provisional/yolox_tiny.onnx \
   --frames 10 --output reports/NEW_RUN/mot_detector_smoke.json
 ```
 

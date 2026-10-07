@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+import hashlib
 import math
 import statistics
 import time
@@ -20,6 +21,7 @@ class DetectorSmokeConfig:
     frames: int = 10
     confidence_threshold: float = 0.3
     nms_iou_threshold: float = 0.45
+    reference_onnx_path: Path | None = None
 
     def __post_init__(self) -> None:
         if self.frames < 1:
@@ -28,6 +30,8 @@ class DetectorSmokeConfig:
             raise ValueError("confidence_threshold must be in (0, 1]")
         if not 0.0 < self.nms_iou_threshold <= 1.0:
             raise ValueError("nms_iou_threshold must be in (0, 1]")
+        if self.reference_onnx_path is not None and not self.reference_onnx_path.is_file():
+            raise ValueError("reference_onnx_path must name an ONNX file")
 
 
 class _CudaRuntime:
@@ -243,6 +247,12 @@ def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[
     except ImportError as exc:
         raise RuntimeError("OpenCV, NumPy, and TensorRT Python are required for detector smoke") from exc
 
+    reference_net = None
+    reference_sha256 = None
+    if config.reference_onnx_path is not None:
+        reference_net = cv2.dnn.readNetFromONNX(str(config.reference_onnx_path))
+        reference_sha256 = hashlib.sha256(config.reference_onnx_path.read_bytes()).hexdigest()
+
     sequence_dir = Path(source)
     ground_truth_frames = {}
     if sequence_dir.is_dir():
@@ -325,6 +335,9 @@ def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[
     maximum_person_scores: list[float] = []
     ground_truth_box_count = 0
     matched_ground_truth_count = 0
+    reference_max_abs_errors: list[float] = []
+    reference_mean_abs_errors: list[float] = []
+    reference_count_matches = 0
     stop_reason = "frame_limit"
     dimensions: tuple[int, int] | None = None
     try:
@@ -363,6 +376,25 @@ def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[
             person_counts.append(count)
             if maximum_score is not None:
                 maximum_person_scores.append(maximum_score)
+            if reference_net is not None:
+                reference_net.setInput(input_host)
+                reference_output = reference_net.forward()
+                if reference_output.shape != output_host.shape:
+                    raise RuntimeError(
+                        f"reference output shape {reference_output.shape} does not match TensorRT {output_host.shape}"
+                    )
+                difference = np.abs(reference_output - output_host)
+                reference_max_abs_errors.append(float(difference.max()))
+                reference_mean_abs_errors.append(float(difference.mean()))
+                reference_decoded = _decode_yolox_output(
+                    reference_output, input_shape[2], input_shape[3]
+                )
+                reference_boxes, _ = _person_detections(
+                    reference_decoded,
+                    config.confidence_threshold,
+                    config.nms_iou_threshold,
+                )
+                reference_count_matches += int(len(reference_boxes) == count)
             if ground_truth_frames:
                 frame_truth = ground_truth_frames.get(frames_processed + 1, ())
                 ground_truth_boxes = [box.xyxy for box in frame_truth]
@@ -415,6 +447,21 @@ def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[
                 if ground_truth_box_count else None
             ),
         },
+        "reference_parity": {
+            "available": reference_net is not None,
+            "runtime": "OpenCV DNN CPU" if reference_net is not None else None,
+            "onnx_path": config.reference_onnx_path.name if config.reference_onnx_path else None,
+            "onnx_sha256": reference_sha256,
+            "frames_compared": len(reference_max_abs_errors),
+            "raw_max_abs_error": max(reference_max_abs_errors) if reference_max_abs_errors else None,
+            "raw_mean_abs_error": (
+                statistics.mean(reference_mean_abs_errors)
+                if reference_mean_abs_errors else None
+            ),
+            "person_count_matching_frames": (
+                reference_count_matches if reference_net is not None else None
+            ),
+        },
         "in_memory_only": True,
         "frames_saved": False,
         "inference_plus_transfer_ms": {"median": statistics.median(inference_ms), "p95": _percentile(inference_ms, 0.95)},
@@ -424,6 +471,7 @@ def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[
             "Raw official-export proposals are grid-decoded, confidence-filtered, and suppressed with NMS.",
             "Person counts and short-prefix ground-truth overlap are diagnostics, not benchmark results.",
             "Ground-truth matching, when available, is a short prefix diagnostic and not a detector benchmark.",
+            "OpenCV DNN parity, when requested, compares the same ONNX graph and input; it is not checkpoint provenance evidence.",
             "No decoded or preprocessed frames are saved.",
         ],
     }

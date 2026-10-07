@@ -4,23 +4,23 @@
 
 **Project outcome:** A local, single-camera pedestrian-tracking prototype on the available Jetson Orin Nano, accompanied by a reproducible evaluation package. A conference paper is optional and depends on the resulting evidence.
 
-**Status on 8 October 2026:** Device inventory, carrier identity, active fan telemetry, USB-tethered H.264/RTSP decode, bounded MOT17 replay, FP32 YOLOX-Tiny execution/output decoding, and isolated ByteTrack behavior have feasibility evidence (D-23, D-26, D-28 through D-32). FP16 remains blocked by the TensorRT 10.16.2 builder assertion. A corrected 100-frame detector diagnostic matched only 25.43% of broadly filtered visible-person annotations, so reference-output parity and acceptable recall remain open alongside USB interruption/reconnect, dataset terms and roles, exact physical cooling assembly, and Phase 0 reconciliation. G4 pre-code approval has **not** been passed.
+**Status on 8 October 2026:** Device inventory, carrier identity, active fan telemetry, USB-tethered H.264/RTSP decode, bounded MOT17 replay, FP32 YOLOX-Tiny execution/output decoding, ten-frame OpenCV-reference parity, and isolated ByteTrack behavior have feasibility evidence (D-23, D-26, D-28 through D-35). FP16 remains blocked by the TensorRT 10.16.2 builder assertion. A corrected 100-frame detector diagnostic matched only 25.43% of broadly filtered visible-person annotations, so acceptable recall remains open. MOT17 structure/grouping is recorded, but explicit terms and scene roles remain unresolved. Phone work is deferred under D-33. G4 pre-code approval has **not** been passed.
 
 ## Current gate status and next actions
 
 | Gate | Current state | What closes it |
 |---|---|---|
 | G0 - Product definition | Accepted in the current product documents | Reopen only through a recorded scope decision |
-| G1 - Feasibility | Partially evidenced; device/carrier/fan telemetry, USB H.264/RTSP decode, MOT17 replay, FP32 person-output decoding, and isolated ByteTrack behavior are captured; FP16 remains blocked | USB interruption/reconnect, exact physical cooling record, detector reference parity/recall, checkpoint terms, and explicit closure/deferment of the FP16 issue |
-| G2 - Data and responsible use | Open | Dataset terms/manifest, sequence split plan, phone-footage authorization, privacy and retention decisions |
+| G1 - Feasibility | Partially evidenced; device/carrier/fan telemetry, USB H.264/RTSP decode, MOT17 replay, FP32 person-output decoding, and isolated ByteTrack behavior are captured; FP16 remains blocked; further phone work is deferred by D-33 | Exact physical cooling record, detector reference parity/recall, checkpoint terms, and explicit closure/deferment of FP16; phone interruption/reconnect requires later closure or supervisor-accepted deferral |
+| G2 - Data and responsible use | Partial private manifests exist; terms and role arrays remain unresolved | Confirm MOT17/underlying-sequence terms, approve grouped scene roles, and retain MOT20 for transfer only; phone-footage authorization is deferred with phone work |
 | G3 - Measurement contract | Open; no baseline or numeric acceptance limits | Same-device every-frame baseline, declared measurement boundary, and approved limits derived from baseline evidence |
 | G4 - Pre-code approval | Not passed | Required documents consistent, blockers resolved or explicitly deferred, verification mapped, and required sign-off recorded |
 
 **Do next, in order:**
 
 1. Record the exact physical cooling assembly and checkpoint terms; preserve prior reports.
-2. Restore USB tethering and verify stream cadence/drop plus controlled interruption/reconnect behavior.
-3. Confirm MOT17 data terms/roles and footage permissions, verify detector reference parity/recall, and finish the Phase 0 claim reconciliation.
+2. Verify detector reference-runtime parity and investigate the low provisional MOT17 recall without tuning on final-evaluation data.
+3. Confirm MOT17 data terms and grouped scene roles, then finish the Phase 0 claim reconciliation. Leave phone work deferred under D-33.
 
 These are feasibility and planning tasks. Full MVP implementation starts only after G4. Adaptive scheduling and energy-saving claims additionally wait for G3.
 

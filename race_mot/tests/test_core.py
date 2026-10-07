@@ -93,6 +93,12 @@ class CoreContractsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DetectorSmokeConfig(Path("engine.plan"), 0)
 
+    def test_detector_smoke_rejects_missing_reference_model(self) -> None:
+        with self.assertRaises(ValueError):
+            DetectorSmokeConfig(
+                Path("engine.plan"), reference_onnx_path=Path("missing.onnx")
+            )
+
     def test_person_postprocessing_filters_and_suppresses_boxes(self) -> None:
         import numpy as np
 
