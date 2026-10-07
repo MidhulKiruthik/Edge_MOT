@@ -1,0 +1,30 @@
+{
+  "run": {
+    "mode": "baseline",
+    "seed": 0,
+    "output_root": "runs"
+  },
+  "input": {
+    "kind": "mot_sequence",
+    "expected_width": 1920,
+    "expected_height": 1080,
+    "expected_fps": 30
+  },
+  "detector": {
+    "family": "yolox_tiny",
+    "engine_path": null,
+    "checkpoint_sha256": null,
+    "input_size": [416, 416],
+    "precision": "fp16",
+    "batch_size": 1
+  },
+  "tracker": {
+    "family": "bytetrack",
+    "implementation_version": "TBD",
+    "parameters_file": "configs/bytetrack.json"
+  },
+  "policy": {
+    "threshold_tau": null,
+    "max_consecutive_skips": null
+  }
+}
