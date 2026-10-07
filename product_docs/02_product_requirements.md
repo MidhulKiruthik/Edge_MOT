@@ -1,7 +1,9 @@
 # RACE-MOT Product Requirements and Acceptance Criteria
 
-**Status:** Draft v0.2. Requirements marked **TBD** cannot be treated as passed.  
+**Status:** Draft v0.2, updated 8 October 2026. Requirements marked **TBD** cannot be treated as passed; bounded G1 feasibility evidence is not product acceptance.
 **Scope:** MVP requirements for one local video stream and one edge device.
+
+**Current execution note:** D-33 defers additional phone/RTSP work. MOT17 replay is the active development input; phone requirements below remain future MVP acceptance requirements.
 
 ## 1. User-facing functional requirements
 

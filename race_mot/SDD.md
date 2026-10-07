@@ -1,8 +1,8 @@
 # RACE-MOT Software Design Document
 
-**Version:** 0.2  
-**Date:** 6 October 2026  
-**Status:** Revised design; Milestone 0 preflight code exists. Detector, tracker integration, risk predictor, integrated scheduler, scene-discovery guard, evaluation runner, and dashboard are planned. Standalone domain/config, scheduler, annotation, and label primitives exist.
+**Version:** 0.3
+**Date:** 8 October 2026
+**Status:** Bounded G1 inventory, MOT replay, FP32 detector/output/parity, and upstream ByteTrack feasibility tools exist. Production detector/tracker adapters, baseline orchestrator, risk predictor, integrated scheduler, scene-discovery guard, evaluation runner, and dashboard remain planned behind G4. Phone work is deferred under D-33.
 **Product:** Local, single-camera pedestrian MOT prototype for Jetson Orin Nano.  
 **Research method:** Calibrated, per-track prediction of avoidable identity failure under a specified next-frame detector-skip action, used for detector scheduling and evaluated against matched prior methods.
 
@@ -73,9 +73,11 @@ The runtime should be a **single Python application process** with sequential de
 
 | Module | Current state | Responsibility |
 |---|---|---|
-| CLI (`cli.py`) | Implemented for preflight | `inventory`, `probe`, `validate-config`, and `inspect-mot`. |
+| CLI (`cli.py`) | Implemented for preflight | `inventory`, `probe`, `mot-probe`, `detector-smoke`, `validate-config`, and `inspect-mot`. |
 | Device inventory (`inventory.py`) | Implemented | Read-only system/software metadata collection; no board configuration changes. |
 | Stream probe (`stream_probe.py`) | Implemented | Open local video/RTSP input, measure read/decode timing, and report redacted metadata; never writes frames. |
+| MOT sequence probe (`stream_probe.py`) | Implemented for G1 | Decode a bounded JPEG prefix, validate dimensions/order, and retain no images. |
+| Detector smoke (`detector_smoke.py`) | Implemented for G1 | TensorRT FP32 execution, YOLOX grid decode/NMS, coordinate restoration, bounded ground-truth overlap, and optional OpenCV DNN parity; not the production detector adapter. |
 | Source adapter | Planned | Normalize local files and RTSP into `FramePacket`; preserve source frame index, timestamp, and input-drop events. |
 | Detector adapter | Planned | Run the selected YOLOX-Tiny model and return canonical person detections. |
 | ByteTrack adapter | Planned | Wrap the pinned tracker implementation; distinguish detector output `[]` from an intentional detector skip. |
@@ -94,15 +96,16 @@ edge/race_mot/
 ├── pyproject.toml
 ├── README.md
 ├── SDD.md
-├── configs/                     # planned, versioned non-secret run configs
+├── configs/                     # present: versioned non-secret run configs
 ├── models/                      # local checkpoints/engines; not committed unless terms allow
 ├── reports/                     # local device/input feasibility reports
 ├── runs/                        # local run manifests, frame logs, summaries
 └── src/race_mot/
     ├── __init__.py              # present
-    ├── cli.py                   # present: inventory, probe, validate-config, inspect-mot
+    ├── cli.py                   # present: inventory/probe/smoke/validation commands
     ├── inventory.py             # present
-    ├── stream_probe.py          # present
+    ├── stream_probe.py          # present: stream and MOT sequence probes
+    ├── detector_smoke.py        # present: bounded G1 TensorRT/reference checks
     ├── application.py           # planned: run lifecycle/orchestration
     ├── config.py                # present: JSON configuration validation
     ├── domain.py                # present: frame/detection/track/action records
@@ -117,7 +120,7 @@ edge/race_mot/
     └── web/                     # planned: local dashboard
 ```
 
-`models/`, `runs/`, `reports/`, local camera settings, and private data should be excluded from version control by the eventual project `.gitignore`. Do not place raw MOT datasets or phone video in the source package.
+`models/`, `runs/`, `reports/`, local camera settings, MOT archives, and private data are excluded by the current `.gitignore`. Do not place raw MOT datasets or phone video in the source package.
 
 ## 5. Runtime data contracts
 
@@ -247,16 +250,18 @@ Phone-captured demo video is not used as labeled training or benchmark data by d
 
 ### 7.1 Implemented commands
 
-The installed CLI currently supports only:
+The installed CLI currently supports:
 
 ```text
 race-mot inventory [--output PATH]
 race-mot probe (--input SOURCE | --input-env VARIABLE) [--duration-sec N] [--output PATH]
+race-mot mot-probe --sequence PATH [--frames N] [--output PATH]
+race-mot detector-smoke (--input SOURCE | --input-env VARIABLE | --mot-sequence PATH) --engine PATH [--reference-onnx PATH] [--frames N] [--output PATH]
 race-mot validate-config --config PATH
 race-mot inspect-mot --gt PATH
 ```
 
-The `inventory` command is read-only. The `probe` command reads frames but does not save them. Its read rate is not end-to-end MOT FPS. These are Milestone 0 utilities, not a finished product interface.
+The `inventory` command is read-only. Probe and smoke commands read frames but do not save them. Their rates/timings are not end-to-end MOT performance. These are G1 utilities, not a finished product interface.
 
 ### 7.2 Planned commands
 
@@ -278,22 +283,21 @@ run:
   seed: 0
   output_root: runs
 input:
-  kind: rtsp                  # rtsp | video_file | mot_sequence
-  uri_env: RACE_MOT_RTSP_URL  # resolve private URI from environment, never commit credentials
-  expected_width: 1280        # provisional starting profile
-  expected_height: 720
-  expected_fps: 15
+  kind: mot_sequence          # active local path; rtsp remains deferred under D-33
+  expected_width: 1920
+  expected_height: 1080
+  expected_fps: 30
 detector:
   family: yolox_tiny
-  engine_path: models/yolox_tiny_fp16.engine
+  engine_path: models/provisional/yolox_tiny_fp32_diagnostic.engine
   checkpoint_sha256: TBD
   input_size: [416, 416]
-  precision: fp16
+  precision: fp32
   batch_size: 1
 tracker:
   family: bytetrack
-  implementation_version: TBD
-  parameters_file: configs/bytetrack.yaml
+  implementation_version: d1bf0191adff59bc8fcfeaa0b33d3d1642552a99
+  parameters_file: configs/bytetrack.json
 risk:
   model_path: null            # null for baseline mode
   calibration_path: null
@@ -398,10 +402,10 @@ No tests or benchmark results are implied by the SDD. Use the separate [verifica
 
 ## 12. Development order
 
-1. Finish Milestone 0 on the Jetson: inventory actual hardware/software and verify phone RTSP input. Current implementations are `inventory.py` and `stream_probe.py`.
+1. Finish remaining G1/G2 closure: record physical cooling, resolve acceptable detector recall and artifact/data terms, approve scene roles, and obtain supervisor acceptance for the D-33 phone deferral or resume phone acceptance later.
 2. Freeze and implement `FramePacket`, source adapter, configuration validation, and run lifecycle.
-3. Verify YOLOX-Tiny checkpoint provenance/license and TensorRT FP16 conversion; implement canonical `Detection` adapter and compare outputs to reference.
-4. Integrate a pinned ByteTrack implementation and explicitly verify `update([])` versus `skip()` semantics and track lifecycle.
+3. Retain the verified TensorRT FP32/OpenCV reference contract, resolve checkpoint terms and recall, then implement the canonical `Detection` adapter after G4. Keep FP16 blocked until an official compatible path exists.
+4. Integrate pinned ByteTrack commit `d1bf0191adff59bc8fcfeaa0b33d3d1642552a99` after G4; replace deprecated compatibility uses and explicitly verify `update([])` versus `skip()` semantics and track lifecycle.
 5. Implement detector-every-frame + ByteTrack end-to-end baseline, local dashboard, per-frame logging, and hardware telemetry; measure before adding adaptive logic.
 6. Build sequence-grouped data and paired counterfactual label pipeline; audit labels and freeze $K$, $M$, match/visibility rules.
 7. Train/compare TCN, GRU, temporal MLP and simple baselines; calibrate on separate sequences. Include actual gap features and report per-gap results. Compare track-only and context-concatenation inputs; attempt shared-context gated fusion only as a measured secondary ablation.
@@ -413,10 +417,10 @@ No tests or benchmark results are implied by the SDD. Use the separate [verifica
 
 | Decision | Current position | Closure condition |
 |---|---|---|
-| Orin Nano module RAM/SKU, carrier, cooling, installed JetPack | Partial inventory retained; carrier/cooling still open | Complete inventory output; no software upgrade before compatibility review. |
-| Phone OS/RTSP app and actual stream profile | IP Webcam H.264/RTSP over USB tethering; 1280x720 at 15 fps is the starting proposal | Verify USB network interface, endpoint, timestamps, buffering and reconnect on the actual link. |
-| YOLOX checkpoint and TensorRT engine | YOLOX-Tiny candidate only | Verify provenance/license, install support, output parity, person recall, and inference. |
-| ByteTrack implementation/version and skip semantics | ByteTrack selected; adapter unimplemented | Pin source/version and validate association and track propagation. |
+| Orin Nano module RAM/SKU, carrier, cooling, installed JetPack | Device/software/carrier and active fan telemetry recorded; physical cooling assembly open | Visually record cooling/enclosure; no software upgrade before compatibility review. |
+| Phone OS/RTSP app and actual stream profile | Basic USB H.264/RTSP decode recorded; further phone work deferred under D-33 | Obtain supervisor deferral acceptance for G4 or later verify cadence, buffering, and reconnect. |
+| YOLOX checkpoint and TensorRT engine | Official-release ONNX and FP32 engine hashes recorded; bounded OpenCV parity passes; provisional recall is 25.43%; FP16 blocked | Resolve checkpoint terms and acceptable recall/full tolerance before freeze. |
+| ByteTrack implementation/version and skip semantics | Commit `d1bf0191...` pinned; synthetic empty-update and ten-frame real-output smoke checks pass; adapter unimplemented | Apply minimal compatibility changes after G4 and validate association, propagation, and distinct skip behavior. |
 | $K$, $M$, anchor match/visibility rules | Unset until label audit | Freeze before training; document pseudocode and edge cases. |
 | Feature history length and normalization | Candidate features in data plan | Choose from training-only validation; log version and causal timing behavior. |
 | Detector-gap semantics | Store wall-clock seconds, source frames, and consecutive detector skips separately | Validate against source timestamps and detector-action logs; freeze gap bins before held-out evaluation. |
@@ -433,3 +437,4 @@ No tests or benchmark results are implied by the SDD. Use the separate [verifica
 |---|---|
 | 6 October 2026 | Initial software design for the RACE-MOT project. Separates existing preflight tools from planned tracking/model/product components and records the data, interface, privacy, measurement, and development contracts. |
 | 6 October 2026 | Added explicit detector-gap state, an ALBIREO-like uncertainty comparator, and a scene-discovery override that can only upgrade SKIP to DETECT. Added discovery/false-trigger metrics, full energy accounting for the guard, and kept learned motion replacement, ROI actions, pseudo-depth, and thermal control deferred. |
+| 8 October 2026 | Reconciled the SDD with D-23 and D-29 through D-36: FP32 is the current board path, bounded MOT17/output/parity/ByteTrack feasibility exists, phone work is deferred, and full adapters remain gated by G4. |

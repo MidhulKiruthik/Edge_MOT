@@ -1,5 +1,10 @@
 # Research Project Proposal: Risk-Calibrated Edge MOT
 
+> **Historical proposal:** Retained for audit and idea history. Where this file
+> conflicts with the binary-action RACE-MOT scope, current device evidence, or
+> gate status, `deep_research_mot_edge_merged.md`, `todo.md`, and the decision
+> log control.
+
 **Working title:** **RACE-MOT: Risk-Calibrated Adaptive Compute and Explanations for Multi-Object Tracking on Edge Devices**  
 **Status:** Proposal draft for supervisor review; no implementation claims or results are made.  
 **Prepared:** 5 October 2026

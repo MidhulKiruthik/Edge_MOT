@@ -1,6 +1,6 @@
 # RACE-MOT Data, Labels, and Model Plan
 
-**Status:** Draft v0.2 — dataset access, terms, and exact splits must be confirmed before training.  
+**Status:** Draft v0.2, updated 8 October 2026 — local MOT17 archives and source-scene grouping are recorded in private manifests; explicit terms and exact role assignments remain unresolved before training.
 **Purpose:** Prevent leakage and ensure the model is trained on the same event the product policy is meant to manage.
 
 ## 1. Data roles

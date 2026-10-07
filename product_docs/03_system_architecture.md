@@ -1,6 +1,6 @@
 # RACE-MOT System Architecture and Interfaces
 
-**Status:** Updated 6 October 2026 — logical architecture; deployment candidates recorded, feasibility not yet verified.  
+**Status:** Updated 8 October 2026 — logical architecture retained; local MOT17, TensorRT FP32/OpenCV parity, and pinned ByteTrack feasibility are partially verified. Full adapters/runtime remain unimplemented and phone work is deferred under D-33.
 **Architecture constraint:** one camera stream, one detector, ByteTrack, one edge device, binary detector invocation.
 
 ## 1. Component view
@@ -76,9 +76,9 @@ Do not persist image frames or identity-labelled ground truth in routine applica
 
 - Device: available Jetson Orin Nano; inventory exact memory/SKU, installed software, and measurement capability before setup.
 - Live demo input: one stationary phone camera using IP Webcam H.264/RTSP over a direct USB-tethered private link. No public relay/cloud. MOT17/MOT20 recorded files remain the source for repeatable evaluation.
-- Detector candidate: YOLOX-Tiny, TensorRT FP16 candidate deployment; exact checkpoint, export, and license must pass the G1 feasibility check.
+- Detector candidate: YOLOX-Tiny at 416, TensorRT FP32 on the verified board path. FP16 is blocked on TensorRT 10.16.2; checkpoint terms and acceptable recall remain open.
 - Dashboard decision: minimal local web UI served by the Jetson and accessed only on the trusted LAN; choose the lightweight framework during implementation. No public bind or cloud dependency.
-- Phone app/OS, stream reconnect timeout, and final input cadence; initial 1280×720, 15 fps H.264 profile if supported, to be frozen only after the baseline.
+- Phone app/OS, stream reconnect timeout, and final input cadence remain deferred under D-33; the initial 1280×720, 15 fps H.264 profile is still only a future starting proposal.
 - How source-frame gaps, wall-clock elapsed time, and consecutive detector skips are represented separately in tracker/model features.
 - Scene-guard region padding, activity statistic, and threshold; retain only if new-track discovery benefits outweigh false triggers and measured pipeline cost.
 - Annotated-video export remains off unless explicitly enabled.

@@ -2,6 +2,26 @@
 
 Inspection date: 7 October 2026. This records observed repository state, not a gate approval or a performance result.
 
+> **Historical snapshot:** Sections describing missing MOT input, inactive USB,
+> absent detector/tracker execution, and the original test count record the
+> takeover state only. They are superseded by D-28 through D-36 and the current
+> status below; retain them for audit history rather than treating them as the
+> latest plan.
+
+## Current handoff status — 8 October 2026
+
+- Phone-camera work is temporarily deferred under D-33; local MOT17 is active.
+- `MOT17-02-FRCNN` local decode, TensorRT FP32 YOLOX grid decoding and coordinate
+  restoration, 100-frame overlap diagnostics, and ten-frame OpenCV DNN parity
+  have private evidence.
+- Pinned ByteTrack commit `d1bf0191adff59bc8fcfeaa0b33d3d1642552a99`
+  runs on real detector outputs in the isolated G1 environment; its project
+  adapter and explicit skip semantics remain post-G4 work.
+- Twenty-three unit tests and baseline configuration validation pass.
+- MOT17 manifests preserve source-scene grouping, but explicit data terms,
+  role assignments, acceptable detector recall, checkpoint terms, exact
+  physical cooling, and G4 approval remain open.
+
 ## Working environment and access
 
 The user has SSH access to the Jetson and supplied `jetson` as the SSH alias. The current execution environment is already on the Jetson: `aarch64`, device-tree model `NVIDIA Jetson Orin Nano Engineering Reference Developer Kit Super`, and an SSH session environment is present. The working repository is `/home/madhan/projects/edge`. A nested `ssh jetson` attempt could not resolve the alias; this device has no user SSH config. Use the existing device shell here. If moving to another execution environment, verify where the alias is configured rather than assuming it resolves everywhere. No credentials were requested or stored.
@@ -82,3 +102,7 @@ timing-model shader assertion; both attempts produced zero-byte engines. The
 default build was stopped after extended tactic selection. No detector ran, and
 no model/tracker runtime is yet feasible. Do not delete or use the zero-byte
 engine files; they remain ignored evidence artifacts.
+
+The final two sentences above are also historical: D-30 through D-36 record the
+subsequent FP32 detector, reference-parity, MOT17, and ByteTrack feasibility
+results. FP16 remains blocked and the zero-byte engines remain invalid.

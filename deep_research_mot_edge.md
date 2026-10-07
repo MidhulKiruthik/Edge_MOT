@@ -2,6 +2,10 @@
 ## Multi-Object Tracking Using Lightweight CNNs on Edge Devices
 ### Final-Year Undergraduate Project Research | October 2026
 
+> **Historical research input:** This document predates the frozen RACE-MOT
+> scope. Use `deep_research_mot_edge_merged.md`, `todo.md`, and the decision log
+> for current hardware, detector, input, gate, and claim status.
+
 ---
 
 ## 1. Current Market & Industry Trends (2024–2026)

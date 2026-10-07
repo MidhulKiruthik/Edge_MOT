@@ -1,7 +1,7 @@
 # RACE-MOT: Risk-Calibrated Adaptive Compute for Edge Multi-Object Tracking
 **Document type:** Living research proposal and evidence review for a final-year undergraduate project  
-**Last reviewed:** 6 October 2026  
-**Status:** Product-first research proposal; implementation can proceed through the staged feasibility gates.  
+**Last reviewed:** 8 October 2026
+**Status:** Product-first research proposal; bounded G1 local feasibility exists, while acceptable detector recall, data/checkpoint terms, grouped roles, G4, and the baseline remain open. Phone work is temporarily deferred under D-33.
 **Core scope:** Online, single-camera pedestrian MOT using one detector, ByteTrack, one physical edge device, MOT17, and MOT20.
 
 > **Novelty claim:** RACE-MOT's methodological contribution is a calibrated, per-track estimate of avoidable future identity failure under a specified detector-skip action, used to schedule the next detector call and evaluated against tracking quality and measured edge-system cost. Its defining combination is the failure target, action-conditioned labels, probability calibration, per-track decision evidence, and detector scheduling in a single-camera MOT pipeline. This is the project's claimed novelty; the proposal does not claim that its individual building blocks (TCN/GRU, calibration, skipping, or ByteTrack) are new.
@@ -19,8 +19,8 @@ This file is the working source of truth for the proposal. Its purpose is to pre
 | Supporting deliverables | Paired-rollout label-generation code, auditable decision records, local Orin Nano prototype, and measured energy/latency/thermal report. These validate and operationalize the primary novelty claim; they are not additional independent method claims. |
 | Novelty position | **Claimed as a focused methodological contribution.** ALBIREO, HSFSO, RT-MOT, EMO, Split and Connect, GLoMOT, and LUKF-Track are explicitly distinguished below by target, timing, input, action, and evaluation. Reproduction and a systematic search strengthen the defense and publication case; they do not change the project into a generic implementation. |
 | Accepted core | One detector, ByteTrack, one edge device, MOT17 grouped sequence evaluation, MOT20 stress/generalization evaluation, one temporal risk-policy contribution, and binary DETECT/SKIP actions with a scene-discovery guard that can upgrade SKIP to DETECT. |
-| Product deployment decision | Jetson Orin Nano is available; live demo feed comes from a stationary mobile phone over private local RTSP/Wi-Fi. Use MOT17/MOT20 replay for repeatable benchmark comparisons. Exact board RAM/SKU and installed software still need inventory. |
-| Detector implementation candidate | YOLOX-Tiny, person class, TensorRT FP16 if supported by the installed JetPack image. This is an engineering baseline, not a novelty claim; freeze exact checkpoint and licensing only after device feasibility check. |
+| Product deployment decision | The target is the Jetson Orin Nano Engineering Reference Developer Kit Super with the D-23 software inventory. Local MOT17 is the active input; the eventual phone demo remains in the MVP but further phone work is deferred under D-33. |
+| Detector implementation candidate | YOLOX-Tiny, person class, TensorRT FP32 on the current verified board path. FP16 is blocked on TensorRT 10.16.2. Bounded OpenCV parity exists; acceptable recall and checkpoint terms remain open. |
 | Deferred ideas | Re-ID, patch/ROI inference, learned motion replacement, pseudo-depth association, thermal feedback control, multi-camera tracking, continual learning, and new dataset creation. Reconsider only through the idea register and scope review. |
 | Proposal gate | Use the focused comparison below to defend the novelty claim. Inspect source/code and complete the targeted search before final proposal submission and before making any “first” or exhaustive-priority claim. |
 

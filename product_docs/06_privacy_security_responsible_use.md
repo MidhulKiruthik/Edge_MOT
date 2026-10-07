@@ -1,6 +1,6 @@
 # RACE-MOT Privacy, Security, and Responsible-Use Plan
 
-**Status:** Updated 6 October 2026. This is a project safeguard plan, not legal advice or a claim of regulatory compliance.
+**Status:** Updated 8 October 2026. This is a project safeguard plan, not legal advice or a claim of regulatory compliance. Additional phone-camera work is temporarily deferred under D-33; local MOT17 artifacts remain private and unredistributed while terms are unresolved.
 
 ## 1. Intended use and prohibited use
 

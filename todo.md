@@ -11,7 +11,7 @@
 | Gate | Current state | What closes it |
 |---|---|---|
 | G0 - Product definition | Accepted in the current product documents | Reopen only through a recorded scope decision |
-| G1 - Feasibility | Partially evidenced; device/carrier/fan telemetry, USB H.264/RTSP decode, MOT17 replay, FP32 person-output decoding, and isolated ByteTrack behavior are captured; FP16 remains blocked; further phone work is deferred by D-33 | Exact physical cooling record, detector reference parity/recall, checkpoint terms, and explicit closure/deferment of FP16; phone interruption/reconnect requires later closure or supervisor-accepted deferral |
+| G1 - Feasibility | Partially evidenced; device/carrier/fan telemetry, USB H.264/RTSP decode, MOT17 replay, FP32 person-output decoding/OpenCV parity, and pinned ByteTrack behavior are captured; FP16 remains blocked; further phone work is deferred by D-33 | Exact physical cooling record, acceptable detector recall, checkpoint terms, and explicit closure/deferment of FP16; phone interruption/reconnect requires later closure or supervisor-accepted deferral |
 | G2 - Data and responsible use | Partial private manifests exist; terms and role arrays remain unresolved | Confirm MOT17/underlying-sequence terms, approve grouped scene roles, and retain MOT20 for transfer only; phone-footage authorization is deferred with phone work |
 | G3 - Measurement contract | Open; no baseline or numeric acceptance limits | Same-device every-frame baseline, declared measurement boundary, and approved limits derived from baseline evidence |
 | G4 - Pre-code approval | Not passed | Required documents consistent, blockers resolved or explicitly deferred, verification mapped, and required sign-off recorded |
@@ -248,21 +248,21 @@ A phase is done only when its code (if any), tests, configuration, raw evidence,
 
 The existing inventory and stream-probe utilities are scaffolding, not evidence. This limited feasibility work is the explicit pre-MVP exception; it is not permission to build the full application.
 
-- [ ] Run device inventory on the physical Orin Nano. Record exact model/SKU, RAM, carrier, OS/JetPack, Jetson Linux, CUDA/TensorRT, Python/PyTorch, power mode, clocks, cooling, storage, and available telemetry.
-- [ ] Preserve the installed image for the initial feasibility check. Do not reflash or replace system OpenCV as the first troubleshooting step.
-- [ ] Enable USB tethering between the stationary phone and Jetson and verify the USB network interface. Probe H.264/RTSP; 1280x720 at 15 input frames/s is a starting profile only if the phone supports it.
-- [ ] Run the no-save probe. Record dimensions, reported/measured cadence, timestamp behavior, read interval, drops, reconnect behavior, and a redacted source identifier. Keep credentials out of command history and logs.
-- [ ] Decode an authorized MOT file locally and verify frame order and timestamps.
-- [ ] Establish whether the candidate detector/checkpoint and ByteTrack can plausibly run on the exact board. Record evidence and any blockers; do not infer feasibility from a different Jetson model.
-- [ ] Verify the demo has no cloud relay or public-network exposure.
+- [ ] Device inventory is substantially recorded (D-23/D-24); exact physical cooling and sustained-run details remain open.
+- [x] Preserve the installed image for the initial feasibility check. No reflash or system OpenCV replacement was performed.
+- [ ] Phone USB/RTSP acceptance is deferred under D-33; basic USB H.264/RTSP decode evidence remains in D-28.
+- [ ] Phone cadence/drop/interruption/reconnect evidence is deferred under D-33.
+- [x] Decode an authorized local MOT17 sequence and verify bounded frame order/dimensions (D-31).
+- [x] Establish bounded YOLOX-Tiny FP32/OpenCV parity and pinned ByteTrack plausibility on the exact board (D-29 through D-36); acceptable recall and terms remain open.
+- [ ] Live-demo network exposure verification is deferred with phone work under D-33.
 
 **Exit evidence (G1):** Device manifest, phone-stream and file-decode reports, candidate stack feasibility note, and any deferred issue recorded. Do not claim tracking quality, detector FPS, or energy savings at this gate.
 
 ## Phase 2 - G2: Approve data, privacy, and the failure-label protocol
 
-- [ ] Record MOT17/MOT20 source/version, terms, checksums, annotation format, permitted storage/distribution, and the exact sequence manifest.
-- [ ] Group MOT17 detector variants by source scene: all variants of a source video stay in the same fold. The 21 MOT17 folders correspond to seven source scenes with three detector variants; do not count the detector variants as independent scenes.
-- [ ] Freeze MOT20 as held-out dense-crowd transfer evaluation. No model fitting, feature selection, calibration, corruption selection, or policy-threshold tuning on MOT20.
+- [ ] Private MOT17 manifest exists, but explicit terms, the large archive checksum, permitted distribution, MOT20 manifest, and final sequence roles remain open.
+- [x] Record the grouping rule that all MOT17 detector variants of one source scene remain in the same role (D-35).
+- [x] Record MOT20 as locked held-out dense-crowd transfer evaluation; do not use it for fitting or selection.
 - [ ] Before label generation, freeze `alpha`, visibility/occlusion rules, `K`, `M`, sequence-boundary censoring, detector/tracker versions, tracker initialization, matching implementation, and branch semantics.
 - [ ] Implement paired offline rollouts from the same tracker state at frame `t`: one branch skips detection at `t+1`, the other detects at `t+1`; both then use detector-every-frame updates for the next `K-1` frames. All other settings are matched.
 - [ ] Use the research report's frozen target: `Y = F_skip * (1 - F_detect)`. A positive label means the skip branch has the defined identity failure within the horizon and the matched detect branch does not. Keep ineligible, ambiguous, and boundary-censored anchors out of the safe-negative class.

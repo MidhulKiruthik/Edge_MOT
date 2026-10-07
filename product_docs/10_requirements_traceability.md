@@ -1,7 +1,7 @@
 # RACE-MOT Requirements Traceability
 
-**Status:** Phase 0 working baseline, 7 October 2026. Verification is planned;
-no row is evidence of an implemented or passed test.
+**Status:** Phase 0 working baseline, updated 8 October 2026. Some G1
+feasibility evidence exists, but no row by itself is evidence of product acceptance.
 
 This matrix links each product requirement to its owning component and a
 specific verification case. A requirement remains open until its case has

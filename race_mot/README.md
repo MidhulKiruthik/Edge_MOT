@@ -1,10 +1,10 @@
 # RACE-MOT implementation
 
-This directory is the implementation workspace for the product-first RACE-MOT project. The first milestone is device and camera-input feasibility on the actual Jetson Orin Nano; the adaptive risk policy is not part of this milestone.
+This directory is the implementation workspace for the product-first RACE-MOT project. Bounded G1 device, local MOT17, TensorRT FP32/OpenCV parity, and upstream ByteTrack feasibility checks exist on the actual Jetson Orin Nano. Full adapters and the adaptive risk policy remain gated by G4. Further phone-camera work is deferred under D-33.
 
-## Milestone 0: inventory and input probe
+## G1 feasibility utilities
 
-The utilities below collect device/software metadata and measure whether a phone camera feed can be read locally. They do not save video, transmit it, or perform tracking. They are not performance results for the MOT pipeline.
+The utilities below collect device/software metadata, probe local/authorized inputs, and run bounded detector diagnostics without saving images. A separate private smoke check exercised pinned upstream ByteTrack; no project tracker adapter exists yet. These are not performance or tracking-quality results.
 
 Install the package in the project environment on the Jetson:
 
@@ -44,7 +44,7 @@ race-mot mot-probe --sequence /path/to/MOT17-02-FRCNN --frames 100 \
 python tests/test_core.py -v
 ```
 
-These commands do not claim detector feasibility, tracking quality, calibration, or energy savings. Those remain gated by the actual-device baseline and G3 measurement contract.
+These commands validate configuration, labels, and local decode behavior. They do not claim tracking quality, calibration, or energy savings. Detector feasibility is recorded only by the bounded smoke evidence below; full performance remains gated by the actual-device baseline and G3 measurement contract.
 
 ## G1 FP32 detector smoke check
 
@@ -79,7 +79,7 @@ detector, tracker, or end-to-end result.
 
 ## Next implementation milestone
 
-After the device and stream are verified, add the every-frame YOLOX-Tiny + ByteTrack baseline, then the result log and local dashboard. Freeze the exact detector checkpoint, its terms, TensorRT export, tracker version, and end-to-end measurement boundary before claiming a baseline. Only after that should the calibrated risk predictor and binary detect/skip policy be implemented. Preserve actual timestamps and source-frame gaps; compare an ALBIREO-like object-wise uncertainty scheduler; then add and measure the scene-discovery guard, which may upgrade a planned skip to a full-frame detector call. The guard is retained only if its new-track discovery benefit justifies its false triggers and system cost.
+Next, resolve acceptable detector recall, checkpoint/data terms, grouped scene roles, exact physical cooling, and the D-33 phone deferral, then pass G4. After G4, implement the deterministic every-frame YOLOX-Tiny + ByteTrack baseline, result log, and local dashboard. Only after the measured baseline and G3 contract should the calibrated risk predictor and binary detect/skip policy be implemented.
 
 See [the product documentation](../product_docs/README.md), [the implementation gate](../product_docs/08_decisions_and_pre_code_gate.md), and the [Software Design Document](SDD.md) for scope, acceptance criteria, and planned module contracts. The working technical plan is [the research report](../deep_research_mot_edge_merged.md).
 

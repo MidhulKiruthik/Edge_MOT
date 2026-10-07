@@ -1,26 +1,26 @@
 # RACE-MOT Hardware, Deployment, and Measurement Plan
 
-**Status:** Updated 6 October 2026 — Jetson Orin Nano confirmed; exact configuration and software image still need inventory.  
+**Status:** Updated 8 October 2026 — target Jetson/software, carrier identity, power mode, and active fan telemetry are recorded; exact physical cooling assembly and sustained measurement setup remain open.
 **Rule:** Use the available board; do not buy hardware to satisfy an unmeasured performance target.
 
 ## 1. Device decision card
 
-Complete before G1. If the physical device is unavailable, do not make an edge-performance claim.
+Complete before G1 closure. Existing observations are feasibility evidence, not edge-performance claims.
 
 | Field | Selected value |
 |---|---|
-| Device/module and RAM | Jetson Orin Nano confirmed; record exact 4 GB/8 GB SKU and module marking during inventory |
-| Carrier board / accelerator | Record developer-kit/carrier revision and any attached accelerator; do not assume an external accelerator |
-| OS/image/kernel | Read from the existing installation; preserve it for the initial feasibility spike |
-| Driver/runtime/compiler | Record JetPack, CUDA, TensorRT, Python, and PyTorch versions; verify model support before environment changes |
-| Supported detector formats/precision | Candidate: YOLOX-Tiny exported to TensorRT FP16; verify conversion and output parity on the installed image |
-| Power mode and clocks | Record active mode/clocks for every run; use one declared mode for policy comparisons |
-| Cooling, fan, enclosure | Record fan/heatsink/enclosure and keep configuration fixed during comparative runs |
+| Device/module and RAM | NVIDIA Jetson Orin Nano Engineering Reference Developer Kit Super; 7.6 GiB observed RAM; module compatibility `p3767-0005-super` |
+| Carrier board / accelerator | NVIDIA `p3768-0000` carrier compatibility; no external accelerator recorded |
+| OS/image/kernel | Ubuntu 24.04.5, Jetson Linux R39.2.1; preserve the installed image |
+| Driver/runtime/compiler | JetPack 7.2.1, CUDA 13.2, TensorRT 10.16.2.10, Python 3.12.3, OpenCV 4.8.0; isolated CPU PyTorch is G1-only |
+| Supported detector formats/precision | YOLOX-Tiny TensorRT FP32 is the current verified path; FP16 engine creation is blocked by a TensorRT builder assertion |
+| Power mode and clocks | 25 W mode observed; record clocks and mode for every comparative run |
+| Cooling, fan, enclosure | Enabled PWM fan and tachometer observed; exact physical heatsink/fan/enclosure still requires visual recording |
 | Power measurement source and sample rate | Use an external meter at the Jetson power input as the primary whole-device measure when available; report onboard rail telemetry separately as diagnostic/cross-check |
 | Ambient test condition | Measure and record at each sustained run |
-| Available storage/network/input | Record free storage; phone camera via IP Webcam H.264/RTSP over direct USB tethering; no cloud relay |
+| Available storage/network/input | Local MOT17 replay active; phone H.264/RTSP basic USB decode previously verified but further phone work deferred under D-33 |
 
-The device family is selected. Before installing anything, inventory the board in place. NVIDIA's current product documentation lists Orin Nano configurations with different RAM and performance/power modes; do not assume that the specific unit is the 8 GB developer kit or the Super configuration. The currently published NVIDIA JetPack download page lists JetPack 7.2.1 / Jetson Linux 39.2.1 for the Orin family, while JetPack 6.2.3 is also listed in the archive for Orin Nano. Preserve a working installed image; if a reflash becomes necessary, choose an officially supported release only after checking the YOLOX/TensorRT dependencies. [NVIDIA JetPack downloads](https://developer.nvidia.com/embedded/jetpack/downloads), [JetPack archive](https://developer.nvidia.com/embedded/jetpack-archive), [Jetson Orin Nano modules](https://developer.nvidia.com/embedded/jetson-modules).
+The actual device inventory above now controls this project. Preserve the working installed image; if a reflash becomes necessary, choose an officially supported release only after checking YOLOX/TensorRT dependencies. [NVIDIA JetPack downloads](https://developer.nvidia.com/embedded/jetpack/downloads), [JetPack archive](https://developer.nvidia.com/embedded/jetpack-archive), [Jetson Orin Nano modules](https://developer.nvidia.com/embedded/jetson-modules).
 
 Do not compare device datasheet TOPS to measured FPS or estimate joules from FLOPs. Record the board's actual configuration and measurements.
 
@@ -67,9 +67,9 @@ Run long enough to reach sustained operating behavior, not just a short benchmar
 - One stream in the MVP. Multi-stream performance is out of scope.
 - Local inference by default; no cloud upload in the MVP.
 - Model files and logs have explicit storage paths and cleanup behavior.
-- The phone is the live demo source. Keep it stationary on a stable mount, enable USB tethering and IP Webcam, use RTSP over the resulting private local link, disable any cloud relay, and specify reconnect, buffering, timestamp, and frame-drop semantics separately from offline MOT file evaluation.
+- The phone remains the eventual live demo source, but additional phone work is deferred under D-33. When resumed, keep it stationary, use the private local link, disable cloud relay, and specify reconnect, buffering, timestamp, and frame-drop semantics separately from MOT evaluation.
 - On device or runtime failure, stop safely, report the fault, and preserve only authorized summary diagnostics.
 
 ## 7. Device feasibility gate
 
-Before implementing the learned controller, demonstrate that the candidate detector + ByteTrack can load and process both the phone RTSP stream and MOT video files on the Jetson, with stable memory and observable timing. This is a limited feasibility milestone, not a performance claim. Then measure the detector-every-frame baseline. Only after its quality/service thresholds are frozen should adaptive-policy implementation proceed.
+Bounded local evidence shows the FP32 detector and pinned ByteTrack can process MOT17 inputs; this is not a performance or quality claim. Phone acceptance remains deferred under D-33. Before the learned controller, resolve or explicitly defer the remaining G1/G2 issues, pass G4, then measure the detector-every-frame baseline and freeze its quality/service thresholds.

@@ -1,6 +1,6 @@
 # RACE-MOT Product Brief
 
-**Status:** Updated 6 October 2026 — product direction agreed; implementation feasibility remains to be demonstrated.  
+**Status:** Updated 8 October 2026 — product direction agreed; bounded device, MOT17, FP32 detector, reference-parity, and ByteTrack feasibility evidence exists, while the full baseline and G4 approval remain open.
 **Product type:** Local edge-computing prototype.  
 **Primary outcome:** A demonstrable software prototype; conference publication is optional and evidence-dependent.
 
@@ -9,6 +9,8 @@
 RACE-MOT is a local video analytics prototype that detects and tracks pedestrians on a single fixed-camera stream. It uses a risk-estimation policy to decide whether to run the detector on the next frame or skip that detector call and propagate active tracks. The product should make its current processing state understandable and provide enough logs to inspect errors and resource use.
 
 The MVP does not identify people across cameras or sessions. Track IDs are temporary algorithmic labels within a video sequence; they are not names or biometric identities.
+
+Current execution is local-MOT17-first. Further phone-camera work is temporarily deferred under D-33 without removing the eventual controlled phone demo from the MVP.
 
 ## 2. Intended user and job
 

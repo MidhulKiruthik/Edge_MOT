@@ -1,6 +1,6 @@
 # RACE-MOT Verification, Acceptance, and Release Plan
 
-**Status:** Draft v0.2 — this is a plan for later verification; no tests have been run by creating this document.
+**Status:** Draft v0.2, updated 8 October 2026 — 23 software tests and bounded G1 feasibility checks exist, but no full-pipeline, product-acceptance, G3, or G4 result is claimed.
 
 ## 1. Verification layers
 

@@ -1,14 +1,14 @@
 # RACE-MOT Product-First Pre-Code Documentation Pack
 
-**Status:** Draft v0.2 — planning only; device and live input direction now confirmed; no implementation or results are claimed.  
-**Date:** 6 October 2026  
+**Status:** Draft v0.2 — updated with bounded G1 feasibility evidence; no full baseline, adaptive-policy result, or product acceptance is claimed.
+**Date:** 8 October 2026
 **Purpose:** Define the product prototype, its boundaries, evidence plan, and acceptance gates before coding begins.
 
 ## Product direction
 
 The working MVP is a **local, single-camera pedestrian-tracking prototype** running on the available Jetson Orin Nano. A stationary mobile phone running IP Webcam supplies the live H.264/RTSP demo feed over a private USB-tethered local link; recorded MOT17/MOT20 files provide repeatable evaluation. The system detects and tracks people with anonymous short-lived IDs, displays tracks and an active-track count (an occupancy proxy), and records compute decisions and device measurements. It is an academic prototype, not a validated people-counting or production surveillance system.
 
-The student/faculty demo workflow, Orin Nano device family, and phone-to-Jetson live input direction are agreed. Exact board/RAM/software inventory and stream feasibility still need a short G1 check. The project prioritizes a functioning prototype; a conference paper is a later option only if the work and evidence support it.
+The student/faculty demo workflow and eventual phone-to-Jetson direction remain agreed. The target board/software, local MOT17 replay, TensorRT FP32 detector path, bounded reference parity, and pinned ByteTrack runtime have feasibility evidence. Acceptable detector recall, checkpoint/data terms, grouped role assignments, the deterministic baseline, and G4 approval remain open. Further phone work is temporarily deferred under D-33.
 
 ## Read these documents in order
 
@@ -46,4 +46,4 @@ Each document is a living draft. Record the date and reason for changes in [the 
 
 ## Current readiness
 
-**Not ready to start adaptive-policy implementation.** Product user, demonstration scene, device family, and input direction are now selected. First inventory the exact Orin Nano/software, verify phone RTSP and candidate detector/ByteTrack feasibility, confirm data/footage terms, and record the detector-every-frame baseline. Set quality, deadline, and energy thresholds only after that baseline. A limited setup/feasibility spike is the next authorized step; do not report planned results as measured results.
+**Not ready to start adaptive-policy implementation.** Bounded local feasibility exists, but acceptable detector recall, checkpoint and dataset terms, scene-role assignments, exact physical cooling documentation, and the detector-every-frame baseline remain open. Phone acceptance work is deferred under D-33. Set quality, deadline, and energy thresholds only after the baseline; do not report planned results as measured results.

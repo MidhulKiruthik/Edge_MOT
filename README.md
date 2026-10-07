@@ -2,13 +2,15 @@
 
 RACE-MOT is a local, single-camera pedestrian-tracking prototype intended for the Jetson Orin Nano. The repository contains the product and research documentation, the initial hardware/input feasibility utilities, and the small deterministic contracts that can be tested without Jetson hardware.
 
+**Current status (8 October 2026):** bounded local MOT17 decode, TensorRT FP32 YOLOX output decoding, OpenCV-reference parity, and pinned ByteTrack feasibility checks have run on the target Jetson. FP16, acceptable detector recall, dataset terms/roles, and G4 approval remain open. Further phone-camera work is temporarily deferred under D-33; local MOT17 work is active.
+
 This is an academic prototype. It does not provide face recognition, persistent identity, cloud processing, or production surveillance functionality. No performance, tracking-quality, calibration, latency, or energy result is claimed until it is measured on the target device.
 
 ## Repository layout
 
 - `product_docs/` - product requirements, architecture, data, hardware, privacy, verification, and decision documents.
 - `race_mot/` - the Python package, configuration, implementation gate, and tests.
-- `deep_research_mot_edge_merged.md` - the current research and prior-art plan.
+- `deep_research_mot_edge_merged.md` - the current research and prior-art plan; the other research/proposal files are retained as historical inputs where they conflict.
 - `todo.md` - the evidence-gated implementation roadmap.
 - `energytrack_project_proposal.md` - historical proposal material; it is not the current specification where the documents differ.
 

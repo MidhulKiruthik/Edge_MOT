@@ -3,13 +3,18 @@
 **Comprehensive Academic Project Proposal & Faculty Presentation Report**  
 **Document Type:** Formal Research Proposal, Technical Specification, and Presentation Pack  
 **Project Outcome:** A proposed local edge-computing prototype, with implementation and research results gated by feasibility and measurement evidence; peer-reviewed conference paper optional.
-**Target Hardware:** NVIDIA Jetson Orin Nano Engineering Reference Developer Kit Super with 7.6 GiB RAM, JetPack 7.2.1, CUDA 13.2, TensorRT 10.16.2, and 25 W power mode recorded in private G1 inventory. Carrier/cooling detail and the final measurement boundary remain open.
+**Target Hardware:** NVIDIA Jetson Orin Nano Engineering Reference Developer Kit Super with 7.6 GiB RAM, `p3768-0000+p3767-0005-super` compatibility, JetPack 7.2.1, CUDA 13.2, TensorRT 10.16.2, 25 W mode, and active fan telemetry recorded in private G1 inventory. Exact physical cooling and the final measurement boundary remain open.
 **Author / Presenter:** Midhul Kiruthik M .
 **Faculty / Department:** BalaMurugan .
 **Date / Version:** October 2026 | Revision v1.0 (Comprehensive Expansion)  
 **Project Repositories & Working Files:**
 - Technical Research & Prior-Art Review: [deep_research_mot_edge_merged.md](../deep_research_mot_edge_merged.md)
 - Product Documentation Pack: [product_docs/README.md](README.md)
+
+**Current execution status:** Local MOT17, FP32 detector/output decoding,
+OpenCV-reference parity, and pinned ByteTrack have bounded feasibility evidence.
+Acceptable recall, terms/roles, the baseline, and G4 remain open. Further phone
+work is temporarily deferred under D-33.
 - Implementation Workspace: [race_mot/README.md](../race_mot/README.md)
 
 ---

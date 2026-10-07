@@ -1,6 +1,10 @@
 # Multi-Object Tracking Using Lightweight CNNs on Edge Devices
 ## Deep research study for a final-year undergraduate project
 
+> **Historical research input:** Recommendations and numeric targets here are
+> not current RACE-MOT requirements. Use `deep_research_mot_edge_merged.md`,
+> `todo.md`, and the decision log for the accepted scope and evidence status.
+
 **Scope.** Literature and industry position as of 5 October 2026. The study focuses on online, camera-based multi-object tracking (MOT) where a detector runs on an edge device and an association module maintains identities. Results quoted below are the authors' benchmark results, usually on a GPU; they are not claims about Raspberry Pi performance unless explicitly stated.
 
 ## Executive conclusion
