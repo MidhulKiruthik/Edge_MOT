@@ -17,10 +17,16 @@ from race_mot.stream_probe import _open_capture, redact_source
 class DetectorSmokeConfig:
     engine_path: Path
     frames: int = 10
+    confidence_threshold: float = 0.3
+    nms_iou_threshold: float = 0.45
 
     def __post_init__(self) -> None:
         if self.frames < 1:
             raise ValueError("frames must be positive")
+        if not 0.0 < self.confidence_threshold <= 1.0:
+            raise ValueError("confidence_threshold must be in (0, 1]")
+        if not 0.0 < self.nms_iou_threshold <= 1.0:
+            raise ValueError("nms_iou_threshold must be in (0, 1]")
 
 
 class _CudaRuntime:
@@ -86,6 +92,60 @@ def _letterbox_bgr(frame: object, input_height: int, input_width: int) -> object
     padded = np.full((input_height, input_width, 3), 114, dtype=np.uint8)
     padded[: resized.shape[0], : resized.shape[1]] = resized
     return np.ascontiguousarray(padded.transpose(2, 0, 1), dtype=np.float32)
+
+
+def _person_detection_count(
+    output: object, confidence_threshold: float, nms_iou_threshold: float
+) -> tuple[int, float | None]:
+    """Count class-zero YOLOX proposals after confidence filtering and NMS."""
+    import numpy as np
+
+    values = np.asarray(output)
+    predictions = values.reshape(-1, values.shape[-1])
+    if predictions.shape[1] < 6:
+        raise RuntimeError("YOLOX output must contain box, objectness, and class scores")
+    scores = predictions[:, 4] * predictions[:, 5]
+    valid = (
+        np.isfinite(predictions[:, :6]).all(axis=1)
+        & (predictions[:, 2] > 0)
+        & (predictions[:, 3] > 0)
+        & (scores >= confidence_threshold)
+    )
+    selected = predictions[valid]
+    selected_scores = scores[valid]
+    if not len(selected):
+        return 0, None
+    boxes = np.column_stack(
+        (
+            selected[:, 0] - selected[:, 2] / 2,
+            selected[:, 1] - selected[:, 3] / 2,
+            selected[:, 0] + selected[:, 2] / 2,
+            selected[:, 1] + selected[:, 3] / 2,
+        )
+    )
+    order = np.argsort(selected_scores)[::-1]
+    kept: list[int] = []
+    while len(order):
+        current = int(order[0])
+        kept.append(current)
+        if len(order) == 1:
+            break
+        remaining = order[1:]
+        left = np.maximum(boxes[current, 0], boxes[remaining, 0])
+        top = np.maximum(boxes[current, 1], boxes[remaining, 1])
+        right = np.minimum(boxes[current, 2], boxes[remaining, 2])
+        bottom = np.minimum(boxes[current, 3], boxes[remaining, 3])
+        intersection = np.maximum(0, right - left) * np.maximum(0, bottom - top)
+        current_area = max(0.0, boxes[current, 2] - boxes[current, 0]) * max(
+            0.0, boxes[current, 3] - boxes[current, 1]
+        )
+        remaining_area = np.maximum(0, boxes[remaining, 2] - boxes[remaining, 0]) * np.maximum(
+            0, boxes[remaining, 3] - boxes[remaining, 1]
+        )
+        union = current_area + remaining_area - intersection
+        iou = np.divide(intersection, union, out=np.zeros_like(intersection), where=union > 0)
+        order = remaining[iou <= nms_iou_threshold]
+    return len(kept), float(selected_scores[kept].max())
 
 
 def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[str, object]:
@@ -173,6 +233,8 @@ def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[
     inference_ms: list[float] = []
     frames_processed = 0
     finite_output_frames = 0
+    person_counts: list[int] = []
+    maximum_person_scores: list[float] = []
     stop_reason = "frame_limit"
     dimensions: tuple[int, int] | None = None
     try:
@@ -198,6 +260,14 @@ def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[
             cuda.synchronize(stream)
             inference_ms.append((time.perf_counter_ns() - started) / 1_000_000)
             finite_output_frames += int(bool(np.isfinite(output_host).all()))
+            count, maximum_score = _person_detection_count(
+                output_host,
+                config.confidence_threshold,
+                config.nms_iou_threshold,
+            )
+            person_counts.append(count)
+            if maximum_score is not None:
+                maximum_person_scores.append(maximum_score)
             frames_processed += 1
     finally:
         release()
@@ -218,13 +288,24 @@ def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[
         "input_resolution": {"width": dimensions[0], "height": dimensions[1]} if dimensions else None,
         "engine": {"input": {"name": input_name, "shape": list(input_shape), "dtype": str(input_dtype)}, "output": {"name": output_name, "shape": list(output_shape), "dtype": str(output_dtype)}},
         "finite_output_frames": finite_output_frames,
+        "person_postprocessing": {
+            "class_id": 0,
+            "confidence_threshold": config.confidence_threshold,
+            "nms_iou_threshold": config.nms_iou_threshold,
+            "counts_by_frame": person_counts,
+            "count_min": min(person_counts),
+            "count_median": statistics.median(person_counts),
+            "count_max": max(person_counts),
+            "maximum_score": max(maximum_person_scores) if maximum_person_scores else None,
+        },
         "in_memory_only": True,
         "frames_saved": False,
         "inference_plus_transfer_ms": {"median": statistics.median(inference_ms), "p95": _percentile(inference_ms, 0.95)},
         "limitations": [
             "This is a bounded feasibility smoke check, not a detector-accuracy, tracking, latency, or energy measurement.",
             "The timing includes host-device transfers and is too short and uncontrolled for a performance claim.",
-            "Outputs are checked only for finite values; YOLOX postprocessing and person detections are not evaluated here.",
+            "Person proposals are decoded and filtered, but they are not matched to ground truth in this smoke check.",
+            "Person counts assume the official YOLOX ONNX export layout and are not an accuracy or recall result.",
             "No decoded or preprocessed frames are saved.",
         ],
     }

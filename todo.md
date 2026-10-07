@@ -4,23 +4,23 @@
 
 **Project outcome:** A local, single-camera pedestrian-tracking prototype on the available Jetson Orin Nano, accompanied by a reproducible evaluation package. A conference paper is optional and depends on the resulting evidence.
 
-**Status on 7 October 2026:** Device inventory and USB-tethered H.264/RTSP decode evidence exist in private reports (D-28). The official YOLOX-Tiny ONNX model parses on TensorRT 10.16.2 but its bounded FP16 engine build fails with an internal TensorRT timing-model assertion (D-29). Stream cadence/drop and interruption/reconnect checks, authorized MOT replay, a viable detector runtime, and ByteTrack feasibility remain open. Phase 0 has outstanding documentation reconciliation. G4 pre-code approval has **not** been passed.
+**Status on 8 October 2026:** Device inventory, carrier identity, active fan telemetry, USB-tethered H.264/RTSP decode, bounded MOT17 replay, FP32 YOLOX-Tiny execution/person-output decoding, and isolated ByteTrack behavior have feasibility evidence (D-23, D-26, D-28 through D-31). FP16 remains blocked by the TensorRT 10.16.2 builder assertion. USB interruption/reconnect, reference-output parity/recall, dataset terms and roles, exact physical cooling assembly, and Phase 0 reconciliation remain open. G4 pre-code approval has **not** been passed.
 
 ## Current gate status and next actions
 
 | Gate | Current state | What closes it |
 |---|---|---|
 | G0 - Product definition | Accepted in the current product documents | Reopen only through a recorded scope decision |
-| G1 - Feasibility | Partially evidenced; device inventory and USB H.264/RTSP decode captured; YOLOX-Tiny ONNX parses and an FP32 diagnostic engine executes, but FP16 TensorRT engine creation is blocked; input robustness, MOT replay, and tracker runtime remain open | Stream interruption/reconnect and file-decode reports, an approved detector precision/runtime path, and isolated ByteTrack feasibility evidence |
+| G1 - Feasibility | Partially evidenced; device/carrier/fan telemetry, USB H.264/RTSP decode, MOT17 replay, FP32 person-output decoding, and isolated ByteTrack behavior are captured; FP16 remains blocked | USB interruption/reconnect, exact physical cooling record, detector reference parity/recall, checkpoint terms, and explicit closure/deferment of the FP16 issue |
 | G2 - Data and responsible use | Open | Dataset terms/manifest, sequence split plan, phone-footage authorization, privacy and retention decisions |
 | G3 - Measurement contract | Open; no baseline or numeric acceptance limits | Same-device every-frame baseline, declared measurement boundary, and approved limits derived from baseline evidence |
 | G4 - Pre-code approval | Not passed | Required documents consistent, blockers resolved or explicitly deferred, verification mapped, and required sign-off recorded |
 
 **Do next, in order:**
 
-1. Complete the existing device manifest with carrier/cooling details and candidate detector/tracker provenance. Preserve prior reports.
-2. Verify stream cadence/drop and interruption/reconnect behavior after the successful USB RTSP probe; obtain authorized MOT input and verify local decoding.
-3. Confirm data-use and footage permissions, and reconcile the faculty pitch's unmeasured numeric claims before presenting it as a specification.
+1. Record the exact physical cooling assembly and checkpoint terms; preserve prior reports.
+2. Restore USB tethering and verify stream cadence/drop plus controlled interruption/reconnect behavior.
+3. Confirm MOT17 data terms/roles and footage permissions, verify detector reference parity/recall, and finish the Phase 0 claim reconciliation.
 
 These are feasibility and planning tasks. Full MVP implementation starts only after G4. Adaptive scheduling and energy-saving claims additionally wait for G3.
 

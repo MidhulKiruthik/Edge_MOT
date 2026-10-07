@@ -52,6 +52,8 @@ def _parser() -> argparse.ArgumentParser:
     smoke_source.add_argument("--mot-sequence", type=Path, help="local MOT image-sequence directory")
     smoke.add_argument("--engine", required=True, type=Path)
     smoke.add_argument("--frames", type=int, default=10)
+    smoke.add_argument("--confidence", type=float, default=0.3)
+    smoke.add_argument("--nms-iou", type=float, default=0.45)
     smoke.add_argument("--output", type=Path, help="JSON output path; defaults to stdout")
 
     validate = commands.add_parser(
@@ -86,7 +88,13 @@ def main() -> int:
             if not source:
                 raise ValueError("input environment variable is unset or empty")
             report = run_detector_smoke(
-                source, DetectorSmokeConfig(args.engine, args.frames)
+                source,
+                DetectorSmokeConfig(
+                    args.engine,
+                    args.frames,
+                    args.confidence,
+                    args.nms_iou,
+                ),
             )
         elif args.command == "validate-config":
             config = load_config(args.config)

@@ -12,7 +12,7 @@ from race_mot.domain import (
 )
 from race_mot.evaluation.labels import RolloutFailure, avoidable_failure_label
 from race_mot.evaluation.mot import group_by_frame, read_gt
-from race_mot.detector_smoke import DetectorSmokeConfig
+from race_mot.detector_smoke import DetectorSmokeConfig, _person_detection_count
 from race_mot.inventory import _hwmon_devices, _thermal_zones
 from race_mot.policy import BinaryScheduler, SchedulerConfig
 
@@ -86,6 +86,20 @@ class CoreContractsTests(unittest.TestCase):
     def test_detector_smoke_requires_at_least_one_frame(self) -> None:
         with self.assertRaises(ValueError):
             DetectorSmokeConfig(Path("engine.plan"), 0)
+
+    def test_person_postprocessing_filters_and_suppresses_boxes(self) -> None:
+        import numpy as np
+
+        output = np.array(
+            [[[50, 50, 20, 20, 0.9, 0.9],
+              [51, 51, 20, 20, 0.8, 0.9],
+              [100, 100, 10, 10, 0.9, 0.8],
+              [200, 200, 10, 10, 0.2, 0.9]]],
+            dtype=np.float32,
+        )
+        count, maximum_score = _person_detection_count(output, 0.3, 0.45)
+        self.assertEqual(count, 2)
+        self.assertAlmostEqual(maximum_score, 0.81, places=6)
 
 
 if __name__ == "__main__":
