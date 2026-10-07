@@ -12,7 +12,13 @@ from race_mot.domain import (
 )
 from race_mot.evaluation.labels import RolloutFailure, avoidable_failure_label
 from race_mot.evaluation.mot import group_by_frame, read_gt
-from race_mot.detector_smoke import DetectorSmokeConfig, _person_detection_count
+from race_mot.detector_smoke import (
+    DetectorSmokeConfig,
+    _decode_yolox_output,
+    _match_count,
+    _person_detection_count,
+    _restore_boxes,
+)
 from race_mot.inventory import _hwmon_devices, _thermal_zones
 from race_mot.policy import BinaryScheduler, SchedulerConfig
 
@@ -100,6 +106,27 @@ class CoreContractsTests(unittest.TestCase):
         count, maximum_score = _person_detection_count(output, 0.3, 0.45)
         self.assertEqual(count, 2)
         self.assertAlmostEqual(maximum_score, 0.81, places=6)
+
+    def test_yolox_raw_output_decodes_expected_grid(self) -> None:
+        import numpy as np
+
+        output = np.zeros((1, 3549, 85), dtype=np.float32)
+        decoded = _decode_yolox_output(output, 416, 416)
+        self.assertTrue(np.allclose(decoded[0, 0, :4], [0, 0, 8, 8]))
+        self.assertTrue(np.allclose(decoded[0, 1, :4], [8, 0, 8, 8]))
+
+    def test_detector_boxes_restore_and_match_original_coordinates(self) -> None:
+        import numpy as np
+
+        restored = _restore_boxes(
+            np.array([[20.8, 10.4, 41.6, 31.2]], dtype=np.float32),
+            1920,
+            1080,
+            416,
+            416,
+        )
+        self.assertTrue(np.allclose(restored[0], [96, 48, 192, 144], atol=1e-4))
+        self.assertEqual(_match_count(restored, [[95, 47, 193, 145]], 0.5), 1)
 
 
 if __name__ == "__main__":

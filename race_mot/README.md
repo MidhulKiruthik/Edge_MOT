@@ -63,10 +63,13 @@ race-mot detector-smoke --mot-sequence data/mot17/MOT17-02-FRCNN \
   --frames 10 --output reports/NEW_RUN/mot_detector_smoke.json
 ```
 
-This validates the engine and I/O path and performs standard YOLOX class-zero
-confidence filtering and NMS. It records only aggregate person counts and
-scores. It does not establish detector accuracy or recall, run ByteTrack, or
-measure latency, throughput, tracking, energy, or thermal behavior.
+This validates the engine and I/O path, decodes the official export's raw
+stride-grid output, restores original-frame coordinates, and performs YOLOX
+class-zero confidence filtering and NMS. For a MOT sequence with local ground
+truth it also reports a bounded IoU-overlap recall diagnostic. It records only
+aggregate counts and scores. It does not establish detector accuracy, freeze
+thresholds, run ByteTrack, or measure latency, throughput, tracking, energy,
+or thermal behavior.
 
 `mot-probe` is a separate bounded JPEG-decoding check for an extracted
 MOTChallenge image sequence. It verifies metadata, sequential image presence,

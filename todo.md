@@ -4,7 +4,7 @@
 
 **Project outcome:** A local, single-camera pedestrian-tracking prototype on the available Jetson Orin Nano, accompanied by a reproducible evaluation package. A conference paper is optional and depends on the resulting evidence.
 
-**Status on 8 October 2026:** Device inventory, carrier identity, active fan telemetry, USB-tethered H.264/RTSP decode, bounded MOT17 replay, FP32 YOLOX-Tiny execution/person-output decoding, and isolated ByteTrack behavior have feasibility evidence (D-23, D-26, D-28 through D-31). FP16 remains blocked by the TensorRT 10.16.2 builder assertion. USB interruption/reconnect, reference-output parity/recall, dataset terms and roles, exact physical cooling assembly, and Phase 0 reconciliation remain open. G4 pre-code approval has **not** been passed.
+**Status on 8 October 2026:** Device inventory, carrier identity, active fan telemetry, USB-tethered H.264/RTSP decode, bounded MOT17 replay, FP32 YOLOX-Tiny execution/output decoding, and isolated ByteTrack behavior have feasibility evidence (D-23, D-26, D-28 through D-32). FP16 remains blocked by the TensorRT 10.16.2 builder assertion. A corrected 100-frame detector diagnostic matched only 25.43% of broadly filtered visible-person annotations, so reference-output parity and acceptable recall remain open alongside USB interruption/reconnect, dataset terms and roles, exact physical cooling assembly, and Phase 0 reconciliation. G4 pre-code approval has **not** been passed.
 
 ## Current gate status and next actions
 
