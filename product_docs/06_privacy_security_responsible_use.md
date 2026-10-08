@@ -1,6 +1,6 @@
 # RACE-MOT Privacy, Security, and Responsible-Use Plan
 
-**Status:** Updated 8 October 2026. This is a project safeguard plan, not legal advice or a claim of regulatory compliance. Additional phone-camera work is temporarily deferred under D-33; local MOT17 artifacts remain private and unredistributed while terms are unresolved.
+**Status:** Updated 8 October 2026. This is a project safeguard plan, not legal advice or a claim of regulatory compliance. D-48 verifies no-frame/default-redacted logging for local replay and D-51 verifies the same boundary for transient phone integration; local MOT17 artifacts remain private and unredistributed under the recorded terms.
 
 ## 1. Intended use and prohibited use
 

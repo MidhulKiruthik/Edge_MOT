@@ -1,9 +1,9 @@
 # RACE-MOT Product Requirements and Acceptance Criteria
 
-**Status:** Draft v0.2, updated 8 October 2026. Requirements marked **TBD** cannot be treated as passed; bounded G1 feasibility evidence is not product acceptance.
+**Status:** Draft v0.4, updated 8 October 2026. D-48 closes the bounded deterministic local-MOT replay implementation, D-49 records the full Phase 5 baseline/official TrackEval metrics/sustained telemetry, D-50 records the audited training-role Phase 6 dataset, and D-51 records transient phone live integration; requirements marked **TBD** cannot be treated as passed and whole-device external energy is still open.
 **Scope:** MVP requirements for one local video stream and one edge device.
 
-**Current execution note:** D-33 defers additional phone/RTSP work. MOT17 replay is the active development input; phone requirements below remain future MVP acceptance requirements.
+**Current execution note:** MOT17 replay is the repeatable development input and D-48 verifies its detector/tracker runtime. D-51 verifies the authorized transient phone path, controlled reconnect, and private-route reachability; phone remains excluded from benchmark labels and raw-video persistence.
 
 ## 1. User-facing functional requirements
 

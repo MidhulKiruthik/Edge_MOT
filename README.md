@@ -2,7 +2,7 @@
 
 RACE-MOT is a local, single-camera pedestrian-tracking prototype intended for the Jetson Orin Nano. The repository contains the product and research documentation, the initial hardware/input feasibility utilities, and the small deterministic contracts that can be tested without Jetson hardware.
 
-**Current status (8 October 2026):** bounded local MOT17 decode, TensorRT FP32 YOLOX output decoding, OpenCV-reference parity, and pinned ByteTrack feasibility checks have run on the target Jetson. FP16, acceptable detector recall, dataset terms/roles, and G4 approval remain open. Further phone-camera work is temporarily deferred under D-33; local MOT17 work is active.
+**Current status (8 October 2026):** bounded local MOT17 decode, restored three-scene development coverage, TensorRT FP32 YOLOX output decoding, expanded OpenCV-reference parity, paired-rollout/label contracts, pinned ByteTrack feasibility checks, the deterministic local detector/tracker runtime, full two-repeat baseline measurements, complete-pipeline sustained telemetry, official TrackEval 1.3.0 metrics, the audited Phase 6 training-role dataset, transient no-save phone integration, and a 30-minute FP32 thermal diagnostic have run on the target Jetson. D-47 records supervisor G4 sign-off, D-48 records Phase 4 implementation, D-49 records Phase 5 baseline measurement, D-50 records Phase 6 dataset generation, and D-51 records phone integration; the detector's measured 52.43% recall is accepted by waiver. G3 is partial only because external-meter energy is unavailable; adaptive scheduling remains gated.
 
 This is an academic prototype. It does not provide face recognition, persistent identity, cloud processing, or production surveillance functionality. No performance, tracking-quality, calibration, latency, or energy result is claimed until it is measured on the target device.
 
@@ -14,7 +14,7 @@ This is an academic prototype. It does not provide face recognition, persistent 
 - `todo.md` - the evidence-gated implementation roadmap.
 - `energytrack_project_proposal.md` - historical proposal material; it is not the current specification where the documents differ.
 
-Read `product_docs/README.md` first. The current project is still in feasibility and pre-code gates; do not add the adaptive scheduler before the documented baseline and measurement gates are closed.
+Read `product_docs/README.md` first. Deterministic Phase 4 implementation is evidenced under D-47/D-48 and the transient phone path under D-51; the adaptive scheduler must wait for the documented baseline and G3 measurement gates.
 
 ## Clone on the Jetson
 

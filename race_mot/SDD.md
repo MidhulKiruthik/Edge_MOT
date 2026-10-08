@@ -2,7 +2,7 @@
 
 **Version:** 0.3
 **Date:** 8 October 2026
-**Status:** Bounded G1 inventory, MOT replay, FP32 detector/output/parity, and upstream ByteTrack feasibility tools exist. Production detector/tracker adapters, baseline orchestrator, risk predictor, integrated scheduler, scene-discovery guard, evaluation runner, and dashboard remain planned behind G4. Phone work is deferred under D-33.
+**Status:** Bounded G1 inventory, MOT replay, FP32 detector/output/parity, upstream ByteTrack feasibility, transient phone integration, a 30-minute FP32 thermal diagnostic, deterministic local-MOT Phase 4 runtime, full two-repeat Phase 5 baseline measurements, official TrackEval 1.3.0 results, and the audited Phase 6 training-role paired-rollout dataset are recorded under D-48/D-49/D-50/D-51 and the Phase 6 dataset record. The runtime has a TensorRT adapter, ByteTrack-compatible lifecycle wrapper, sequential baseline orchestrator, redacted manifest/JSONL logger, golden reference fixture, metrics evaluator, sustained telemetry runner, and minimal redacted replay dashboard. G3 is partial only for external-meter energy and final limit acceptance, and adaptive policy remains later work.
 **Product:** Local, single-camera pedestrian MOT prototype for Jetson Orin Nano.  
 **Research method:** Calibrated, per-track prediction of avoidable identity failure under a specified next-frame detector-skip action, used for detector scheduling and evaluated against matched prior methods.
 
@@ -78,16 +78,17 @@ The runtime should be a **single Python application process** with sequential de
 | Stream probe (`stream_probe.py`) | Implemented | Open local video/RTSP input, measure read/decode timing, and report redacted metadata; never writes frames. |
 | MOT sequence probe (`stream_probe.py`) | Implemented for G1 | Decode a bounded JPEG prefix, validate dimensions/order, and retain no images. |
 | Detector smoke (`detector_smoke.py`) | Implemented for G1 | TensorRT FP32 execution, YOLOX grid decode/NMS, coordinate restoration, bounded ground-truth overlap, and optional OpenCV DNN parity; not the production detector adapter. |
-| Source adapter | Planned | Normalize local files and RTSP into `FramePacket`; preserve source frame index, timestamp, and input-drop events. |
-| Detector adapter | Planned | Run the selected YOLOX-Tiny model and return canonical person detections. |
-| ByteTrack adapter | Planned | Wrap the pinned tracker implementation; distinguish detector output `[]` from an intentional detector skip. |
+| MOT sequence source (`sources/mot_sequence.py`) | Implemented and replay-verified under D-38 | Read `seqinfo.ini`, decode every one-based MOT frame in order, preserve nominal sequence timestamps and monotonic arrival times, and stop visibly on missing/corrupt or dimension-mismatched frames. Images remain in memory. |
+| Video/RTSP source (`sources/video.py`) | Implemented and three-frame replay-verified under D-39 | Normalize local video and private RTSP/HTTP streams into `FramePacket`; preserve decoder indices/timestamps and known input-drop events. No reconnect policy is hidden in the adapter. |
+| Detector adapter | Implemented under D-48 | Run the selected YOLOX-Tiny FP32 engine, time preprocessing/inference/postprocessing/coordinate mapping, and return canonical person detections. |
+| ByteTrack adapter | Implemented under D-48 | Expose the pinned ByteTrack API and distinguish detector output `[]` from an intentional detector skip. The current baseline uses a dependency-free deterministic IoU compatibility backend and records that backend in the manifest. |
 | Feature/history store | Planned | Maintain bounded per-track history with elapsed seconds, source-frame gap, and consecutive detector skips, plus one optional scene-context vector per frame. |
 | Risk model and calibrator | Planned | Primary candidate is a causal-in-time track-history TCN; compare GRU/temporal MLP and track-only, context-concatenation, and optional shared-context gated-fusion variants. Score tracks, aggregate frame risk, and mark calibration validity. Report results by detector-gap bin. No fixed parameter or sub-millisecond target is assumed. |
 | Scene-discovery guard | Planned | Reuse the once-per-frame low-resolution thumbnail/frame-difference features; check activity outside padded active-track boxes and upgrade a planned `SKIP` to full-frame `DETECT` for new activity or abrupt scene change. It cannot downgrade a planned detection. Measure discovery delay/recall, false triggers, and cost; this is a product safety mechanism, not novelty. |
 | Scheduler | Standalone primitive; runtime integration planned | Select binary next-frame `DETECT` or `SKIP`, apply the scene-guard override and hard fallbacks, and emit reason codes. |
 | Evaluation/label tools | Annotation reader and outcome-label primitive; full evaluation planned | Create offline counterfactual labels, run sequence-level metrics, calibration and statistical summaries. |
-| Run logger/telemetry | Planned | Store configuration, per-frame actions/metrics, summary, and hardware measurements. |
-| Dashboard/export | Planned | Show latest run snapshot and export summary/decision log; video export stays opt-in. |
+| Run logger/telemetry | Run logger and Phase 5 telemetry runner implemented under D-48/D-49 | Store configuration, per-frame actions/metrics, summary hashes, privacy flags, Jetson telemetry, and explicit external-energy availability. |
+| Dashboard/export | Minimal replay dashboard implemented for Phase 5 | Show latest redacted run snapshot, temporary track geometry, action/reason, latency, queue/drop, and error state. It serves no source frames; video export stays opt-in. |
 
 ## 4. Repository layout
 
@@ -106,25 +107,25 @@ edge/race_mot/
     ├── inventory.py             # present
     ├── stream_probe.py          # present: stream and MOT sequence probes
     ├── detector_smoke.py        # present: bounded G1 TensorRT/reference checks
-    ├── application.py           # planned: run lifecycle/orchestration
+├── application.py           # present: sequential baseline lifecycle/orchestration
     ├── config.py                # present: JSON configuration validation
     ├── domain.py                # present: frame/detection/track/action records
-    ├── sources/                 # planned: file and RTSP source adapters
-    ├── detectors/               # planned: YOLOX/TensorRT interface
-    ├── trackers/                # planned: ByteTrack adapter
+    ├── sources/                 # present: local MOT and video/RTSP adapters
+    ├── detectors/               # present: YOLOX/TensorRT interface
+    ├── trackers/                # present: ByteTrack-compatible adapter
     ├── risk/                    # planned: features, TCN/GRU/MLP, calibration
     ├── policy.py                # present: standalone scheduler primitive
-    ├── evaluation/              # present: annotation/label primitives; full runner planned
-    ├── telemetry/               # planned: Jetson sampler and energy sync
-    ├── logging/                 # planned: manifests and per-frame records
-    └── web/                     # planned: local dashboard
+    ├── evaluation/              # present: annotation/label primitives and baseline runner
+    ├── telemetry/               # sustained telemetry runner under scripts/
+    ├── logging/                 # run manifest/frame records are present in application.py
+    └── dashboard.py              # present: local redacted replay dashboard
 ```
 
 `models/`, `runs/`, `reports/`, local camera settings, MOT archives, and private data are excluded by the current `.gitignore`. Do not place raw MOT datasets or phone video in the source package.
 
 ## 5. Runtime data contracts
 
-The exact implementation language is Python. Core record classes are in `domain.py`; adapter and runtime APIs below remain planned.
+The exact implementation language is Python. Core record classes are in `domain.py`; the detector, tracker, source, sequential baseline, baseline evaluator, telemetry runner, and redacted replay dashboard are implemented for local Phase 5 measurement. Adaptive-policy, learned risk, and full policy-comparison APIs remain planned.
 
 ### 5.1 `FramePacket`
 
@@ -283,7 +284,7 @@ run:
   seed: 0
   output_root: runs
 input:
-  kind: mot_sequence          # active local path; rtsp remains deferred under D-33
+  kind: mot_sequence          # local replay baseline; rtsp is separately probed under D-39
   expected_width: 1920
   expected_height: 1080
   expected_fps: 30
@@ -402,11 +403,11 @@ No tests or benchmark results are implied by the SDD. Use the separate [verifica
 
 ## 12. Development order
 
-1. Finish remaining G1/G2 closure: record physical cooling, resolve acceptable detector recall and artifact/data terms, approve scene roles, and obtain supervisor acceptance for the D-33 phone deferral or resume phone acceptance later.
-2. Freeze and implement `FramePacket`, source adapter, configuration validation, and run lifecycle.
-3. Retain the verified TensorRT FP32/OpenCV reference contract, resolve checkpoint terms and recall, then implement the canonical `Detection` adapter after G4. Keep FP16 blocked until an official compatible path exists.
-4. Integrate pinned ByteTrack commit `d1bf0191adff59bc8fcfeaa0b33d3d1642552a99` after G4; replace deprecated compatibility uses and explicitly verify `update([])` versus `skip()` semantics and track lifecycle.
-5. Implement detector-every-frame + ByteTrack end-to-end baseline, local dashboard, per-frame logging, and hardware telemetry; measure before adding adaptive logic.
+1. Retain the D-48 deterministic local replay and D-51 transient phone integration while keeping adaptive work deferred.
+2. Complete source replay verification, configuration validation, and run lifecycle; preserve the current no-save phone probe as feasibility evidence.
+3. Retain the verified TensorRT FP32/OpenCV reference contract and golden fixture; keep FP16 blocked until an official compatible path exists.
+4. Replace the dependency-free ByteTrack compatibility backend with the pinned upstream runtime only if the Jetson dependency set is frozen and the same lifecycle/parity evidence is repeated.
+5. Run the detector-every-frame + tracker G3 baseline with hardware telemetry, then use the redacted dashboard for local replay inspection. Adaptive logic remains gated by the external-energy measurement.
 6. Build sequence-grouped data and paired counterfactual label pipeline; audit labels and freeze $K$, $M$, match/visibility rules.
 7. Train/compare TCN, GRU, temporal MLP and simple baselines; calibrate on separate sequences. Include actual gap features and report per-gap results. Compare track-only and context-concatenation inputs; attempt shared-context gated fusion only as a measured secondary ablation.
 8. Implement binary scheduler and maximum-skip guard, then the scene-discovery override. Compare direct/faithful adaptive baselines, including an ALBIREO-like object-wise uncertainty scheduler; report reproduction limits.
@@ -417,8 +418,8 @@ No tests or benchmark results are implied by the SDD. Use the separate [verifica
 
 | Decision | Current position | Closure condition |
 |---|---|---|
-| Orin Nano module RAM/SKU, carrier, cooling, installed JetPack | Device/software/carrier and active fan telemetry recorded; physical cooling assembly open | Visually record cooling/enclosure; no software upgrade before compatibility review. |
-| Phone OS/RTSP app and actual stream profile | Basic USB H.264/RTSP decode recorded; further phone work deferred under D-33 | Obtain supervisor deferral acceptance for G4 or later verify cadence, buffering, and reconnect. |
+| Orin Nano module RAM/SKU, carrier, cooling, installed JetPack | Device/software/carrier, stock cooling, open enclosure, and sustained FP32 diagnostic recorded under D-41 | Use the recorded setup for the detector-plus-tracker G3 baseline; no software upgrade before compatibility review. |
+| Phone OS/RTSP app and actual stream profile | Basic USB H.264/RTSP decode and current endpoint probe recorded under D-28/D-39 | Verify cadence, buffering, interruption/reconnect, and trusted-LAN exposure before live-demo acceptance. |
 | YOLOX checkpoint and TensorRT engine | Official-release ONNX and FP32 engine hashes recorded; bounded OpenCV parity passes; provisional recall is 25.43%; FP16 blocked | Resolve checkpoint terms and acceptable recall/full tolerance before freeze. |
 | ByteTrack implementation/version and skip semantics | Commit `d1bf0191...` pinned; synthetic empty-update and ten-frame real-output smoke checks pass; adapter unimplemented | Apply minimal compatibility changes after G4 and validate association, propagation, and distinct skip behavior. |
 | $K$, $M$, anchor match/visibility rules | Unset until label audit | Freeze before training; document pseudocode and edge cases. |
@@ -426,7 +427,7 @@ No tests or benchmark results are implied by the SDD. Use the separate [verifica
 | Detector-gap semantics | Store wall-clock seconds, source frames, and consecutive detector skips separately | Validate against source timestamps and detector-action logs; freeze gap bins before held-out evaluation. |
 | Scene-discovery guard threshold | Low-resolution frame difference/activity outside padded track regions | Tune on policy-validation sequences; retain only if entry discovery improves enough to justify false triggers and complete-pipeline cost. |
 | Scene-context fusion path | Start with track history; compare concatenation, then optional shared-context gated residual for the primary TCN | The shared frame descriptor is encoded once and reused; implement the gated path only after baseline profiling and if its measured value can justify its per-track cost. The concrete candidate equation is in the research report. |
-| Dashboard framework/port and LAN access | Local web dashboard; private LAN only | Select framework, security boundary, and acceptable render overhead. |
+| Dashboard framework/port and LAN access | Python stdlib HTTP dashboard on port 8765, loopback by default | Use `race_mot.cli dashboard --run-dir ...`; select a trusted-LAN bind address explicitly and do not expose it publicly. |
 | Queue/reconnect settings and input drop semantics | File replay preserves all frames; RTSP drops logged separately | Measure source behavior and freeze a bounded policy before live demo. |
 | Energy meter and telemetry accuracy | External Jetson-input meter as primary when available; onboard telemetry as separate diagnostic | Verify meter boundary/sampling; report onboard rails separately and state limitations before energy claims. |
 | Performance thresholds | No numeric target yet | Derive from pilot baseline/application cadence and freeze before final evaluation. |
@@ -437,4 +438,7 @@ No tests or benchmark results are implied by the SDD. Use the separate [verifica
 |---|---|
 | 6 October 2026 | Initial software design for the RACE-MOT project. Separates existing preflight tools from planned tracking/model/product components and records the data, interface, privacy, measurement, and development contracts. |
 | 6 October 2026 | Added explicit detector-gap state, an ALBIREO-like uncertainty comparator, and a scene-discovery override that can only upgrade SKIP to DETECT. Added discovery/false-trigger metrics, full energy accounting for the guard, and kept learned motion replacement, ROI actions, pseudo-depth, and thermal control deferred. |
-| 8 October 2026 | Reconciled the SDD with D-23 and D-29 through D-36: FP32 is the current board path, bounded MOT17/output/parity/ByteTrack feasibility exists, phone work is deferred, and full adapters remain gated by G4. |
+| 8 October 2026 | Reconciled the SDD with D-23 and D-29 through D-41: FP32 is the current board path, bounded MOT17/output/parity/ByteTrack feasibility, a current phone probe, and a 30-minute FP32 thermal diagnostic exist, and full tracker/runtime acceptance remains gated by G2/G4. |
+| 8 October 2026 | D-48 completed the deterministic local-MOT Phase 4 slice: TensorRT detector adapter, tracker lifecycle wrapper, sequential baseline, immutable manifest, redacted JSONL frame log, golden reference fixture, failure/restart tests, and repeated 100-frame replay hash evidence. The later D-51 record adds transient phone integration; G3 measurement is still open. |
+| 8 October 2026 | D-51 added the no-save phone reconnect check, FP32/tracker live pass, and private-route evidence. Phone frames remain outside labels and persistent storage. |
+| 8 October 2026 | D-49 measured two full detector-every-frame repetitions over MOT17-02/04/05, added dependency-free and official TrackEval metric evaluation plus latency/DMR reporting, froze G3 limits, and recorded a 60-second complete-pipeline telemetry run. External-meter energy remains required before G3 closure. |

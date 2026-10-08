@@ -1,7 +1,6 @@
 # RACE-MOT Requirements Traceability
 
-**Status:** Phase 0 working baseline, updated 8 October 2026. Some G1
-feasibility evidence exists, but no row by itself is evidence of product acceptance.
+**Status:** Updated 8 October 2026. D-48 closes the bounded deterministic local-MOT implementation rows, D-49 records the full Phase 5 baseline/official TrackEval metrics/sustained telemetry, D-50 records the audited training-role Phase 6 dataset, and D-51 records transient phone live integration; the G3 external-energy row remains open. No row by itself is evidence of final product acceptance.
 
 This matrix links each product requirement to its owning component and a
 specific verification case. A requirement remains open until its case has
@@ -10,7 +9,7 @@ retained evidence from the declared device, input, configuration, and run.
 | ID | Requirement | Owning component | Verification case | Expected result | Evidence to retain |
 |---|---|---|---|---|---|
 | FR-01 | Start, pause, stop, restart phone RTSP or authorized file input | Application/source adapter/dashboard | V-PIPE-01 | State transitions complete cleanly for RTSP and file replay | Run manifest, state log, clean-stop record |
-| FR-02 | Validate dimensions, cadence, timestamps, decode errors, reconnects | Source adapter | V-INPUT-01 | Valid input reports metadata; invalid/interrupted input reports actionable failure and separate drops | Probe report, fault-injection log |
+| FR-02 | Validate dimensions, cadence, timestamps, decode errors, reconnects | Source adapter | V-INPUT-01 | Valid input reports metadata; controlled interruption/reconnect reports actionable status and separate drops | Probe report, reconnect report |
 | FR-03 | Display temporary tracks and active-track count as occupancy proxy | Tracker/dashboard | V-UI-01 | Rendered IDs reset per run and count matches emitted active snapshots | Screenshot/sample records, summary |
 | FR-04 | Support one detector, ByteTrack, risk model, guard, and binary actions | Orchestrator/detector/tracker/policy | V-POLICY-01 | Configuration selects only `DETECT` or `SKIP`; guard only upgrades skip | Config hash, action trace |
 | FR-05 | Provide detector-every-frame baseline and adaptive mode | Orchestrator | V-BASE-01 | Baseline invokes detector on every processed source frame | Baseline action log, detector-call trace |

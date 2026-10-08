@@ -1,10 +1,10 @@
 # RACE-MOT implementation
 
-This directory is the implementation workspace for the product-first RACE-MOT project. Bounded G1 device, local MOT17, TensorRT FP32/OpenCV parity, and upstream ByteTrack feasibility checks exist on the actual Jetson Orin Nano. Full adapters and the adaptive risk policy remain gated by G4. Further phone-camera work is deferred under D-33.
+This directory is the implementation workspace for the product-first RACE-MOT project. Bounded G1 device, three-scene local MOT17 development coverage, expanded TensorRT FP32/OpenCV parity, paired-rollout contracts, pinned ByteTrack feasibility, the audited Phase 6 training-role dataset, and transient no-save phone integration exist on the actual Jetson Orin Nano. D-47 records supervisor G4 sign-off, D-48 records the deterministic Phase 4 local replay implementation, D-50 records the Phase 6 dataset, and D-51 records live phone integration; G3 external energy plus the adaptive risk policy remain gated.
 
 ## G1 feasibility utilities
 
-The utilities below collect device/software metadata, probe local/authorized inputs, and run bounded detector diagnostics without saving images. A separate private smoke check exercised pinned upstream ByteTrack; no project tracker adapter exists yet. These are not performance or tracking-quality results.
+The utilities below collect device/software metadata, probe local/authorized inputs, and run bounded detector diagnostics without saving images. The Phase 4 runtime includes a TensorRT FP32 detector adapter, deterministic ByteTrack-compatible lifecycle adapter, redacted run logger, and local replay commands. These are implementation/replay results, not final performance or tracking-quality claims.
 
 Install the package in the project environment on the Jetson:
 
@@ -29,10 +29,60 @@ Keep credentials out of command history. Enable USB tethering and IP Webcam, ide
 The first hardware-independent contracts are now available under `src/race_mot/`:
 
 - `domain.py` defines frame, detection, track, action, and policy records.
+- `sources/mot_sequence.py` reads MOTChallenge sequences in source order and emits in-memory `FramePacket`s with original frame indices and timestamps.
 - `config.py` validates the JSON form of the documented run configuration.
 - `policy.py` implements bounded binary `DETECT`/`SKIP` scheduling and the one-way scene-guard upgrade.
 - `evaluation/mot.py` reads MOTChallenge person annotations without extra dependencies.
 - `evaluation/labels.py` implements the paired-rollout avoidable-failure label primitive.
+- `detectors/yolox_tensorrt.py` runs the frozen FP32 engine with stage timings and original-frame boxes.
+- `trackers/bytetrack.py` exposes initialize/update/skip/reset with explicit empty-update versus skip semantics.
+- `application.py` runs a sequential detector-every-frame replay and writes manifest, JSONL frame log, and summary hashes.
+- `evaluation/tracking_metrics.py` evaluates detector diagnostics and runtime/identity metrics; official TrackEval 1.3.0 is available through the optional evaluation environment.
+- `dashboard.py` serves a local redacted replay dashboard with temporary track geometry, action/reason, latency, queue, drop, and error state; it never serves source frames.
+
+Run and repeat a bounded local replay:
+
+```bash
+race-mot replay-check --sequence data/mot17/MOT17-02-FRCNN \
+  --engine models/provisional/yolox_tiny_fp32_diagnostic.engine \
+  --config configs/baseline.json --output-root runs/phase4-replay \
+  --frames 100 --repeats 2
+```
+
+The Phase 5 baseline command accepts repeated full local sequences and writes per-run metrics. Use `pip install -e '.[evaluation]'` in an isolated environment for the official TrackEval path, then run `scripts/run_trackeval.py` on the generated MOT logs. Whole-device energy remains unavailable until an external Jetson-input meter is connected.
+
+Phase 6 generates the frozen training-role paired-rollout dataset from the Phase 5 logs:
+
+```bash
+PYTHONPATH=src python scripts/generate_phase6_dataset.py \
+  --sequence data/mot17/MOT17-02-FRCNN runs/2026-10-08-phase5-baseline/repeat-01-MOT17-02-FRCNN \
+  --sequence data/mot17/MOT17-04-FRCNN runs/2026-10-08-phase5-baseline/repeat-01-MOT17-04-FRCNN \
+  --sequence data/mot17/MOT17-05-FRCNN runs/2026-10-08-phase5-baseline/repeat-01-MOT17-05-FRCNN \
+  --roles data/roles.json --protocol data/rollout_protocol.json \
+  --output-root runs/2026-10-08-phase6-dataset
+```
+
+The generator writes unique serialized anchor states, paired branch labels, training-only statistics, and leakage/prevalence audits. It reads only the training role; phone, MOT20, calibration, policy-validation, and final-evaluation labels are excluded.
+
+To inspect a completed local run, serve the dashboard on loopback:
+
+```bash
+PYTHONPATH=src python -m race_mot.cli dashboard \
+  --run-dir runs/2026-10-08-phase5-baseline/repeat-01-MOT17-02-FRCNN
+```
+
+Use an explicitly authorized trusted-LAN bind address only when needed; phone capture is not part of this Phase 5 path.
+
+For the authorized live demonstration, use the transient phone checks. They retain
+only redacted metadata, detections, and temporary tracks:
+
+```bash
+race-mot phone-reconnect --input-env RACE_MOT_PHONE_URL --cycles 3 --frames-per-cycle 30 \
+  --output reports/NEW_RUN/reconnect.json
+race-mot phone-run --input-env RACE_MOT_PHONE_URL \
+  --engine models/provisional/yolox_tiny_fp32_diagnostic.engine \
+  --config configs/baseline.json --output runs/NEW_RUN --frames 100
+```
 
 Validate the local baseline configuration and inspect an annotation file before using Jetson-specific tools:
 
@@ -72,6 +122,12 @@ aggregate counts and scores. It does not establish detector accuracy, freeze
 thresholds, run ByteTrack, or measure latency, throughput, tracking, energy,
 or thermal behavior.
 
+The expanded D-42 reports compare 200 identical MOT17 frames through OpenCV
+DNN and TensorRT FP32, including restored-box coordinate/IoU agreement and
+precision/recall diagnostics. They are retained under the ignored dated
+directory `reports/2026-10-08-g3-detector-acceptance/`; they do not approve the
+checkpoint for final evaluation.
+
 `mot-probe` is a separate bounded JPEG-decoding check for an extracted
 MOTChallenge image sequence. It verifies metadata, sequential image presence,
 and decoded dimensions without retaining frames. Its decode rate is not a
@@ -79,7 +135,7 @@ detector, tracker, or end-to-end result.
 
 ## Next implementation milestone
 
-Next, resolve acceptable detector recall, checkpoint/data terms, grouped scene roles, exact physical cooling, and the D-33 phone deferral, then pass G4. After G4, implement the deterministic every-frame YOLOX-Tiny + ByteTrack baseline, result log, and local dashboard. Only after the measured baseline and G3 contract should the calibrated risk predictor and binary detect/skip policy be implemented.
+Next, resolve acceptable detector recall, checkpoint/data terms, grouped scene roles, exact physical cooling, and phone reconnect/LAN acceptance, then pass G4. After G4, implement the deterministic every-frame YOLOX-Tiny + ByteTrack baseline, result log, and local dashboard. Only after the measured baseline and G3 contract should the calibrated risk predictor and binary detect/skip policy be implemented.
 
 See [the product documentation](../product_docs/README.md), [the implementation gate](../product_docs/08_decisions_and_pre_code_gate.md), and the [Software Design Document](SDD.md) for scope, acceptance criteria, and planned module contracts. The working technical plan is [the research report](../deep_research_mot_edge_merged.md).
 

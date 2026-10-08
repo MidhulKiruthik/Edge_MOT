@@ -1,6 +1,6 @@
 # RACE-MOT Verification, Acceptance, and Release Plan
 
-**Status:** Draft v0.2, updated 8 October 2026 — 23 software tests and bounded G1 feasibility checks exist, but no full-pipeline, product-acceptance, G3, or G4 result is claimed.
+**Status:** Draft v0.4, updated 8 October 2026 — D-47 records supervisor G4 sign-off, D-48 records deterministic local Phase 4 implementation, D-49 records the full two-repeat Phase 5 baseline with official TrackEval metrics and sustained telemetry, D-50 records the audited Phase 6 training-role dataset, and D-51 records transient phone integration. The detector recall deviation is documented as a waiver. G3 remains partial only for external-meter energy and final limit acceptance.
 
 ## 1. Verification layers
 
@@ -12,6 +12,12 @@
 | Pipeline | Phone RTSP input, MOT-file replay, detector, tracker, risk model, UI, exports, stream-loss handling, stop/restart | Run logs, sample output, phone-network configuration, failure/recovery records |
 | Device | End-to-end latency, memory, power, sustained temperature/throttling | Hardware manifest, synchronized traces, repeated run summaries |
 | Responsible use | Local-only default, data deletion, access, export controls | Data-flow checklist, configuration review, demo-media review |
+
+### Detector acceptance status (D-42 / GC-02)
+
+The current board path is the local YOLOX-Tiny ONNX artifact converted to TensorRT FP32. Its ONNX SHA-256 is `427cc366d34e27ff7a03e2899b5e3671425c262ea2291f88bb942bc1cc70b0f7`; the engine SHA-256 is `c045bfd4ce2baa4ea8ae75850802df89ef1d71c2af3200d3bda6970dd3f0d3d7`. The implementation uses 416x416 NCHW float32 BGR input, top-left letterbox fill 114, resize-only scaling, YOLOX stride decoding, person class 0, confidence 0.10, and NMS IoU 0.45 as the development candidate configuration. The source repository is Apache-2.0, but pretrained-checkpoint terms are not independently confirmed and the artifacts remain local.
+
+On 200 `MOT17-02-FRCNN` frames, OpenCV DNN and TensorRT matched person counts on 200/200 frames at confidence 0.25 and 198/200 at confidence 0.10; paired restored-box IoUs were at least 0.98965. The three-scene 100-frame-per-scene diagnostic reached aggregate precision 61.48% and recall 52.43% at confidence 0.10 with visibility >=0.20, below the proposed 65% development threshold. Under D-43/D-46, GC-02 is accepted for implementation planning by supervisor waiver; this is not a measured 65% threshold pass. Detailed evidence is in the ignored local directories `race_mot/reports/2026-10-08-g3-detector-acceptance/` and `race_mot/reports/2026-10-08-g3-detector-acceptance-3scene/`.
 
 ## 2. Required policy baselines
 

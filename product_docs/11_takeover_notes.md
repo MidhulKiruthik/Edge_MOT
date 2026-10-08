@@ -10,17 +10,23 @@ Inspection date: 7 October 2026. This records observed repository state, not a g
 
 ## Current handoff status — 8 October 2026
 
-- Phone-camera work is temporarily deferred under D-33; local MOT17 is active.
+The deterministic local-MOT Phase 4 runtime is implemented under D-48, the Phase 5 baseline is recorded under D-49, the Phase 6 training-role dataset is recorded under D-50, and transient phone integration is recorded under D-51. The remaining work is external-meter G3 energy closure, model fitting/calibration, adaptive-policy implementation, and final hardening.
+
+- Local MOT17 remains the repeatable benchmark source; D-51 supersedes the earlier phone-only attestation with machine-generated no-save decode, controlled reconnect, FP32/tracker integration, and private-route evidence. Phone frames remain excluded from labels and benchmark metrics.
 - `MOT17-02-FRCNN` local decode, TensorRT FP32 YOLOX grid decoding and coordinate
-  restoration, 100-frame overlap diagnostics, and ten-frame OpenCV DNN parity
-  have private evidence.
-- Pinned ByteTrack commit `d1bf0191adff59bc8fcfeaa0b33d3d1642552a99`
-  runs on real detector outputs in the isolated G1 environment; its project
-  adapter and explicit skip semantics remain post-G4 work.
-- Twenty-three unit tests and baseline configuration validation pass.
-- MOT17 manifests preserve source-scene grouping, but explicit data terms,
-  role assignments, acceptable detector recall, checkpoint terms, exact
-  physical cooling, and G4 approval remain open.
+  restoration, 200-frame overlap/precision-recall diagnostics, and expanded
+  OpenCV DNN parity have private evidence under D-42/GC-02. The measured
+  available-scene recall remains below the proposed acceptance threshold.
+- Pinned ByteTrack commit metadata `d1bf0191adff59bc8fcfeaa0b33d3d1642552a99`
+  is exposed through the project adapter with explicit `update([])` versus
+  `skip()` semantics; the bounded baseline uses its dependency-free deterministic
+  IoU compatibility backend and records that choice in each manifest.
+- Twenty-eight unit tests and baseline configuration validation pass.
+- MOT17 manifests preserve source-scene grouping and terms. D-47 records
+  supervisor G4 sign-off for deterministic Phase 4; measured three-scene
+  recall remains below the earlier proposal and is accepted by waiver. Phone
+  capture/validation is explicitly deferred. Exact cooling and sustained FP32
+  telemetry are recorded under D-41.
 
 ## Working environment and access
 
@@ -32,7 +38,7 @@ The repository is on `main`, with existing uncommitted documentation edits, `AGE
 
 - Python package under `race_mot/src/race_mot`, requiring Python 3.10 or newer, with no declared third-party dependencies for the core slice.
 - CLI commands: `inventory`, `probe`, `validate-config`, and `inspect-mot`.
-- Frame/detection/track records, config validation, a standalone binary scheduler, MOT annotation parsing, and a paired-outcome label primitive. These are scaffolding, not an integrated tracking or training pipeline.
+- Frame/detection/track records, config validation, a standalone binary scheduler, MOT annotation parsing, a paired-outcome label primitive, and the Phase 6 training-role paired-rollout generator/audit. The learned predictor and adaptive training pipeline remain later phases.
 - Seven existing unit tests passed on the current device. Baseline config validation passed. Existing diff passed `git diff --check`.
 - OpenCV and TensorRT modules are discoverable. Package queries report JetPack `7.2.1-b49` and `libnvinfer10` `10.16.2.10-1+cuda13.2`. PyTorch, ONNX, YOLOX, and `yolox.tracker` are not discoverable in the checked system Python environment. This is not an exhaustive search of other environments.
 - Expected root/package `models/` and `data/` directories are absent. No detector or tracker inference was run.

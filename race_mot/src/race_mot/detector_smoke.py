@@ -22,6 +22,7 @@ class DetectorSmokeConfig:
     confidence_threshold: float = 0.3
     nms_iou_threshold: float = 0.45
     reference_onnx_path: Path | None = None
+    ground_truth_visibility_min: float = 0.0
 
     def __post_init__(self) -> None:
         if self.frames < 1:
@@ -32,6 +33,8 @@ class DetectorSmokeConfig:
             raise ValueError("nms_iou_threshold must be in (0, 1]")
         if self.reference_onnx_path is not None and not self.reference_onnx_path.is_file():
             raise ValueError("reference_onnx_path must name an ONNX file")
+        if not 0.0 <= self.ground_truth_visibility_min <= 1.0:
+            raise ValueError("ground_truth_visibility_min must be in [0, 1]")
 
 
 class _CudaRuntime:
@@ -201,12 +204,18 @@ def _restore_boxes(boxes: object, frame_width: int, frame_height: int,
 def _match_count(predicted_boxes: object, ground_truth_boxes: object,
                  iou_threshold: float = 0.5) -> int:
     """Greedily match predictions to ground truth for a bounded diagnostic."""
+    return len(_match_pairs(predicted_boxes, ground_truth_boxes, iou_threshold))
+
+
+def _match_pairs(predicted_boxes: object, ground_truth_boxes: object,
+                 iou_threshold: float = 0.5) -> list[tuple[int, int, float]]:
+    """Return greedy prediction/truth pairs as (prediction, truth, IoU)."""
     import numpy as np
 
     predicted = np.asarray(predicted_boxes, dtype=np.float32).reshape(-1, 4)
     truth = np.asarray(ground_truth_boxes, dtype=np.float32).reshape(-1, 4)
     if not len(predicted) or not len(truth):
-        return 0
+        return []
     candidates: list[tuple[float, int, int]] = []
     for prediction_index, prediction in enumerate(predicted):
         left = np.maximum(prediction[0], truth[:, 0])
@@ -229,11 +238,34 @@ def _match_count(predicted_boxes: object, ground_truth_boxes: object,
         )
     used_predictions: set[int] = set()
     used_truth: set[int] = set()
+    pairs: list[tuple[int, int, float]] = []
     for _, prediction_index, truth_index in sorted(candidates, reverse=True):
         if prediction_index not in used_predictions and truth_index not in used_truth:
             used_predictions.add(prediction_index)
             used_truth.add(truth_index)
-    return len(used_truth)
+            pairs.append((prediction_index, truth_index, _))
+    return pairs
+
+
+def _box_iou(left: object, right: object) -> float:
+    """Compute IoU for two xyxy boxes."""
+    import numpy as np
+
+    first = np.asarray(left, dtype=np.float32)
+    second = np.asarray(right, dtype=np.float32)
+    intersection = max(0.0, min(float(first[2]), float(second[2])) - max(float(first[0]), float(second[0]))) * max(
+        0.0, min(float(first[3]), float(second[3])) - max(float(first[1]), float(second[1]))
+    )
+    first_area = max(0.0, float(first[2] - first[0])) * max(0.0, float(first[3] - first[1]))
+    second_area = max(0.0, float(second[2] - second[0])) * max(0.0, float(second[3] - second[1]))
+    union = first_area + second_area - intersection
+    return intersection / union if union > 0 else 0.0
+
+
+def get_reference_parity(report: dict[str, object]) -> dict[str, object] | None:
+    """Read the stable reference-parity field from a detector report."""
+    value = report.get("reference_parity") or report.get("onnx_reference")
+    return value if isinstance(value, dict) else None
 
 
 def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[str, object]:
@@ -285,7 +317,13 @@ def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[
         source_kind = "mot_sequence"
         ground_truth_path = sequence_dir / "gt" / "gt.txt"
         if ground_truth_path.is_file():
-            ground_truth_frames = group_by_frame(read_gt(ground_truth_path))
+            ground_truth_frames = group_by_frame(
+                tuple(
+                    box
+                    for box in read_gt(ground_truth_path)
+                    if box.visibility >= config.ground_truth_visibility_min
+                )
+            )
     else:
         capture, backend = _open_capture(cv2, str(source))
         if not capture.isOpened():
@@ -335,6 +373,9 @@ def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[
     maximum_person_scores: list[float] = []
     ground_truth_box_count = 0
     matched_ground_truth_count = 0
+    detected_box_count = 0
+    reference_coordinate_errors: list[float] = []
+    reference_box_ious: list[float] = []
     reference_max_abs_errors: list[float] = []
     reference_mean_abs_errors: list[float] = []
     reference_count_matches = 0
@@ -395,6 +436,29 @@ def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[
                     config.nms_iou_threshold,
                 )
                 reference_count_matches += int(len(reference_boxes) == count)
+                if dimensions is not None and len(reference_boxes) and len(person_boxes):
+                    restored_reference = _restore_boxes(
+                        reference_boxes,
+                        dimensions[0],
+                        dimensions[1],
+                        input_shape[3],
+                        input_shape[2],
+                    )
+                    restored_target = _restore_boxes(
+                        person_boxes,
+                        dimensions[0],
+                        dimensions[1],
+                        input_shape[3],
+                        input_shape[2],
+                    )
+                    parity_pairs = _match_pairs(restored_target, restored_reference, 0.0)
+                    for prediction_index, reference_index, _ in parity_pairs:
+                        reference_coordinate_errors.append(
+                            float(np.abs(restored_target[prediction_index] - restored_reference[reference_index]).max())
+                        )
+                        reference_box_ious.append(
+                            _box_iou(restored_target[prediction_index], restored_reference[reference_index])
+                        )
             if ground_truth_frames:
                 frame_truth = ground_truth_frames.get(frames_processed + 1, ())
                 ground_truth_boxes = [box.xyxy for box in frame_truth]
@@ -407,6 +471,7 @@ def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[
                 )
                 ground_truth_box_count += len(ground_truth_boxes)
                 matched_ground_truth_count += _match_count(restored_boxes, ground_truth_boxes)
+                detected_box_count += len(restored_boxes)
             frames_processed += 1
     finally:
         release()
@@ -425,7 +490,12 @@ def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[
         "frames_processed": frames_processed,
         "stop_reason": stop_reason,
         "input_resolution": {"width": dimensions[0], "height": dimensions[1]} if dimensions else None,
-        "engine": {"input": {"name": input_name, "shape": list(input_shape), "dtype": str(input_dtype)}, "output": {"name": output_name, "shape": list(output_shape), "dtype": str(output_dtype)}},
+        "engine": {
+            "path": config.engine_path.name,
+            "sha256": hashlib.sha256(config.engine_path.read_bytes()).hexdigest(),
+            "input": {"name": input_name, "shape": list(input_shape), "dtype": str(input_dtype)},
+            "output": {"name": output_name, "shape": list(output_shape), "dtype": str(output_dtype)},
+        },
         "finite_output_frames": finite_output_frames,
         "person_postprocessing": {
             "class_id": 0,
@@ -440,8 +510,23 @@ def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[
         "ground_truth_diagnostic": {
             "available": bool(ground_truth_frames),
             "iou_threshold": 0.5 if ground_truth_frames else None,
+            "visibility_min": config.ground_truth_visibility_min if ground_truth_frames else None,
             "visible_person_boxes": ground_truth_box_count if ground_truth_frames else None,
+            "detected_person_boxes": detected_box_count if ground_truth_frames else None,
             "matched_person_boxes": matched_ground_truth_count if ground_truth_frames else None,
+            "true_positives": matched_ground_truth_count if ground_truth_frames else None,
+            "false_positives": (
+                detected_box_count - matched_ground_truth_count
+                if ground_truth_frames else None
+            ),
+            "false_negatives": (
+                ground_truth_box_count - matched_ground_truth_count
+                if ground_truth_frames else None
+            ),
+            "precision": (
+                matched_ground_truth_count / detected_box_count
+                if ground_truth_frames and detected_box_count else None
+            ),
             "recall": (
                 matched_ground_truth_count / ground_truth_box_count
                 if ground_truth_box_count else None
@@ -461,6 +546,16 @@ def run_detector_smoke(source: str | Path, config: DetectorSmokeConfig) -> dict[
             "person_count_matching_frames": (
                 reference_count_matches if reference_net is not None else None
             ),
+            "count_match_percentage": (
+                100.0 * reference_count_matches / len(reference_max_abs_errors)
+                if reference_max_abs_errors else None
+            ),
+            "max_coordinate_difference_px": (
+                max(reference_coordinate_errors) if reference_coordinate_errors else None
+            ),
+            "min_box_iou": min(reference_box_ious) if reference_box_ious else None,
+            "mean_box_iou": statistics.mean(reference_box_ious) if reference_box_ious else None,
+            "box_pairs_compared": len(reference_box_ious),
         },
         "in_memory_only": True,
         "frames_saved": False,

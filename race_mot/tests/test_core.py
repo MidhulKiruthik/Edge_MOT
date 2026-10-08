@@ -1,17 +1,28 @@
 import json
+from types import SimpleNamespace
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from race_mot.config import load_config
+from race_mot.dashboard import load_dashboard_state
+from race_mot.application import SequentialBaseline
+from race_mot.detectors.yolox_tensorrt import FixedDetectionsDetector
 from race_mot.domain import (
     DetectorAction,
+    Detection,
+    FramePacket,
+    SourceKind,
     TrackSnapshot,
     TrackState,
     aggregate_frame_risk,
 )
 from race_mot.evaluation.labels import RolloutFailure, avoidable_failure_label
 from race_mot.evaluation.mot import group_by_frame, read_gt
+from race_mot.evaluation.paired_rollout import BranchObservation, pair_observations
+from race_mot.evaluation.protocol import RolloutProtocol
+from race_mot.evaluation.tracking_metrics import evaluate_tracking
 from race_mot.detector_smoke import (
     DetectorSmokeConfig,
     _decode_yolox_output,
@@ -21,6 +32,8 @@ from race_mot.detector_smoke import (
 )
 from race_mot.inventory import _hwmon_devices, _thermal_zones
 from race_mot.policy import BinaryScheduler, SchedulerConfig
+from race_mot.trackers.bytetrack import ByteTrackAdapter
+from race_mot.sources.video import VideoSource
 
 
 def track(track_id: int = 1) -> TrackSnapshot:
@@ -28,10 +41,129 @@ def track(track_id: int = 1) -> TrackSnapshot:
 
 
 class CoreContractsTests(unittest.TestCase):
+    def test_tracker_update_empty_is_distinct_from_skip(self) -> None:
+        tracker = ByteTrackAdapter()
+        packet = FramePacket("run", 1, 0.0, 1, SourceKind.MOT_SEQUENCE, image_bgr=object())
+        detections = [Detection((0.0, 0.0, 10.0, 10.0), 0.9, 0)]
+        self.assertEqual(len(tracker.initialize(detections, packet)), 1)
+        empty = tracker.update([], FramePacket("run", 2, 33.0, 2, SourceKind.MOT_SEQUENCE, image_bgr=object()))
+        self.assertEqual(empty, [])
+        predicted = tracker.skip(FramePacket("run", 3, 66.0, 3, SourceKind.MOT_SEQUENCE, image_bgr=object()))
+        self.assertEqual(len(predicted), 1)
+        self.assertEqual(tracker.last_event, "skip")
+
+    def test_tracker_state_clone_is_independent_and_hashable(self) -> None:
+        tracker = ByteTrackAdapter()
+        packet = FramePacket("run", 1, 0.0, 1, SourceKind.MOT_SEQUENCE, image_bgr=object())
+        tracker.update([Detection((0.0, 0.0, 10.0, 10.0), 0.9, 0)], packet)
+        clone = tracker.clone()
+        self.assertEqual(clone.state_dict(), tracker.state_dict())
+        clone.skip(FramePacket("run", 2, 33.0, 2, SourceKind.MOT_SEQUENCE, image_bgr=object()))
+        self.assertNotEqual(clone.state_dict(), tracker.state_dict())
+
+    def test_baseline_restart_and_failure_are_recorded(self) -> None:
+        config_path = Path(__file__).parents[1] / "configs" / "baseline.json"
+        def source(run_id: str):
+            yield FramePacket(run_id, 1, 0.0, 1, SourceKind.MOT_SEQUENCE, image_bgr=object())
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            runner = SequentialBaseline(
+                FixedDetectionsDetector([Detection((0.0, 0.0, 10.0, 10.0), 0.9, 0)]),
+                ByteTrackAdapter(),
+            )
+            first = runner.run(source("one"), output_dir=root / "one", config_path=config_path, source_name="local", source_kind="mot_sequence")
+            second = runner.run(source("two"), output_dir=root / "two", config_path=config_path, source_name="local", source_kind="mot_sequence")
+            self.assertEqual(first.status, "completed")
+            self.assertEqual(second.status, "completed")
+            runner.stop()
+            runner.stop()
+
+            def broken_source():
+                yield FramePacket("broken", 1, 0.0, 1, SourceKind.MOT_SEQUENCE, image_bgr=object())
+                raise RuntimeError("synthetic source loss")
+            failed = SequentialBaseline(FixedDetectionsDetector(), ByteTrackAdapter()).run(
+                broken_source(), output_dir=root / "failed", config_path=config_path,
+                source_name="local", source_kind="mot_sequence"
+            )
+            self.assertEqual(failed.status, "failed")
+            self.assertIn("synthetic source loss", failed.error or "")
+
+    def test_video_source_preserves_decoder_indices_and_drops(self) -> None:
+        class Capture:
+            def __init__(self):
+                self.items = [(1, 0.0), (3, 66.0)]
+                self.current = (0, 0.0)
+                self.released = False
+            def isOpened(self): return True
+            def read(self):
+                if not self.items: return False, None
+                return True, SimpleNamespace(shape=(8, 8, 3))
+            def get(self, prop):
+                if prop == 1: return 0.0
+                if prop == 5: return self.current[0]
+                if prop == 6: return self.current[1]
+                return 0.0
+            def release(self): self.released = True
+        capture = Capture()
+        original_read = capture.read
+        def read_with_progress():
+            if not capture.items: return False, None
+            capture.current = capture.items.pop(0)
+            return True, SimpleNamespace(shape=(8, 8, 3))
+        capture.read = read_with_progress
+        with patch.dict("sys.modules", {"cv2": SimpleNamespace(CAP_PROP_BUFFERSIZE=38, CAP_PROP_POS_FRAMES=5, CAP_PROP_POS_MSEC=6)}), patch(
+            "race_mot.sources.video._open_capture", return_value=(capture, "fake")
+        ):
+            packets = list(VideoSource("clip.avi", run_id="video"))
+        self.assertEqual([packet.source_index for packet in packets], [1, 3])
+        self.assertEqual([packet.input_drop_count for packet in packets], [0, 1])
+        self.assertTrue(capture.released)
+
+    def test_tracking_metrics_report_detector_and_identity_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sequence = root / "MOT17-test"
+            (sequence / "gt").mkdir(parents=True)
+            (sequence / "gt" / "gt.txt").write_text(
+                "1,7,0,0,10,10,1,1,1\n2,7,1,0,10,10,1,1,1\n", encoding="utf-8"
+            )
+            frame_log = root / "frame_log.jsonl"
+            frame_log.write_text(
+                json.dumps({"source_index": 1, "tracks": [{"temporary_track_id": 3, "xyxy": [0, 0, 10, 10]}], "detections": [], "input_drop_count": 0, "pipeline_latency_ms": 10.0, "detector_timing": {"inference_ms": 5.0}}) + "\n"
+                + json.dumps({"source_index": 2, "tracks": [{"temporary_track_id": 3, "xyxy": [1, 0, 11, 10]}], "detections": [], "input_drop_count": 0, "pipeline_latency_ms": 20.0, "detector_timing": {"inference_ms": 6.0}}) + "\n",
+                encoding="utf-8",
+            )
+            report = evaluate_tracking(sequence, frame_log)
+        self.assertEqual(report["detector_diagnostics"]["true_positives"], 2)
+        self.assertEqual(report["tracking_metrics"]["ID_switches"], 0)
+        self.assertEqual(report["tracking_metrics"]["MOTA"], 1.0)
+        self.assertEqual(report["runtime_metrics"]["latency_ms"]["median"], 15.0)
     def test_baseline_config_loads_without_jetson(self) -> None:
         config = load_config(Path(__file__).parents[1] / "configs" / "baseline.json")
         self.assertEqual(config.mode, "baseline")
         self.assertEqual(config.input_size, (416, 416))
+
+    def test_dashboard_state_is_redacted_and_tracks_latest_frame(self) -> None:
+        root = Path(tempfile.mkdtemp())
+        (root / "manifest.json").write_text(json.dumps({
+            "run_id": "dashboard-test", "source": "MOT17-02-FRCNN",
+            "source_kind": "mot_sequence", "runtime": {"action": "DETECT", "deadline_ms": 33.3},
+        }), encoding="utf-8")
+        (root / "summary.json").write_text(json.dumps({
+            "run_id": "dashboard-test", "status": "completed", "frames_processed": 2,
+            "detections": 3, "tracks": 3, "error": None,
+        }), encoding="utf-8")
+        (root / "frame_log.jsonl").write_text(json.dumps({
+            "source_index": 2, "source_timestamp_ms": 66.7, "executed_action": "DETECT",
+            "planned_action": "DETECT", "reason": "BASELINE_EVERY_FRAME", "pipeline_latency_ms": 12.5,
+            "processing_ms": 10.0, "active_track_count": 1, "queue_depth": 0, "input_drop_count": 0,
+            "tracks": [{"temporary_track_id": 4, "xyxy": [1, 2, 30, 40], "score": 0.9, "state": "tracked"}],
+        }) + "\n", encoding="utf-8")
+        state = load_dashboard_state(root)
+        self.assertFalse(state["phone_capture"])
+        self.assertEqual(state["latest"]["source_index"], 2)
+        self.assertEqual(state["latest"]["tracks"][0]["temporary_track_id"], 4)
+        self.assertNotIn("image_bgr", json.dumps(state))
 
     def test_scheduler_forces_detect_without_tracks_or_risk(self) -> None:
         scheduler = BinaryScheduler(SchedulerConfig(0.5, 2))
@@ -133,6 +265,67 @@ class CoreContractsTests(unittest.TestCase):
         )
         self.assertTrue(np.allclose(restored[0], [96, 48, 192, 144], atol=1e-4))
         self.assertEqual(_match_count(restored, [[95, 47, 193, 145]], 0.5), 1)
+
+    def test_paired_rollout_requires_identical_anchor_and_future_frames(self) -> None:
+        protocol = RolloutProtocol(0.5, 0.2, 2, 1, "detector", "tracker")
+        skip = BranchObservation("skip", "anchor", (2, 3), (True, True), (7, None))
+        detect = BranchObservation("detect", "anchor", (2, 3), (True, True), (7, 7))
+        result = pair_observations(
+            anchor_frame_index=1,
+            target_identity=7,
+            skip=skip,
+            detect=detect,
+            protocol=protocol,
+        )
+        self.assertEqual(result.label, 1)
+        self.assertTrue(result.skip_failed)
+        self.assertFalse(result.detect_failed)
+
+    def test_paired_rollout_boundary_is_excluded(self) -> None:
+        protocol = RolloutProtocol(0.5, 0.2, 2, 1, "detector", "tracker")
+        skip = BranchObservation("skip", "anchor", (2, 3), (True, True), (7, 7), True)
+        detect = BranchObservation("detect", "anchor", (2, 3), (True, True), (7, 7), True)
+        result = pair_observations(
+            anchor_frame_index=1,
+            target_identity=7,
+            skip=skip,
+            detect=detect,
+            protocol=protocol,
+        )
+        self.assertIsNone(result.label)
+        self.assertEqual(result.exclusion, "boundary_censored")
+
+    def test_label_audit_fixture_matches_frozen_protocol(self) -> None:
+        import json
+
+        fixture = json.loads(
+            (Path(__file__).parents[1] / "data" / "label_audit.json").read_text()
+        )
+        protocol = RolloutProtocol(0.5, 0.2, 5, 2, "detector", "tracker")
+        observed = {"positive": 0, "safe_negative": 0, "excluded": 0}
+        for case in fixture["cases"]:
+            skip = BranchObservation(
+                "skip", "audit", tuple(range(1, 6)), tuple(case["skip_visible"]), tuple(case["skip_identity"]), case["boundary_censored"]
+            )
+            detect = BranchObservation(
+                "detect", "audit", tuple(range(1, 6)), tuple(case["detect_visible"]), tuple(case["detect_identity"]), case["boundary_censored"]
+            )
+            result = pair_observations(
+                anchor_frame_index=0,
+                target_identity=7,
+                skip=skip,
+                detect=detect,
+                protocol=protocol,
+            )
+            self.assertEqual(result.label, case["expected_label"], case["name"])
+            self.assertEqual(result.exclusion, case["expected_exclusion"], case["name"])
+            if result.label == 1:
+                observed["positive"] += 1
+            elif result.label == 0:
+                observed["safe_negative"] += 1
+            else:
+                observed["excluded"] += 1
+        self.assertEqual(observed, {"positive": 2, "safe_negative": 3, "excluded": 1})
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # RACE-MOT Hardware, Deployment, and Measurement Plan
 
-**Status:** Updated 8 October 2026 — target Jetson/software, carrier identity, power mode, and active fan telemetry are recorded; exact physical cooling assembly and sustained measurement setup remain open.
+**Status:** Updated 8 October 2026 — target Jetson/software, exact physical cooling details, power mode, ambient condition, a 30-minute FP32 detector thermal diagnostic, deterministic local detector/tracker replay, full-sequence baseline metrics, and sustained complete-pipeline telemetry are recorded. Whole-pipeline external-meter energy and final G3 limit acceptance remain open.
 **Rule:** Use the available board; do not buy hardware to satisfy an unmeasured performance target.
 
 ## 1. Device decision card
@@ -15,10 +15,10 @@ Complete before G1 closure. Existing observations are feasibility evidence, not 
 | Driver/runtime/compiler | JetPack 7.2.1, CUDA 13.2, TensorRT 10.16.2.10, Python 3.12.3, OpenCV 4.8.0; isolated CPU PyTorch is G1-only |
 | Supported detector formats/precision | YOLOX-Tiny TensorRT FP32 is the current verified path; FP16 engine creation is blocked by a TensorRT builder assertion |
 | Power mode and clocks | 25 W mode observed; record clocks and mode for every comparative run |
-| Cooling, fan, enclosure | Enabled PWM fan and tachometer observed; exact physical heatsink/fan/enclosure still requires visual recording |
+| Cooling, fan, enclosure | Stock integrated active aluminum heatsink with 4-pin PWM fan; fan PWM enable `1`, duty `42`; open benchtop; private photo reference recorded in `race_mot/data/device_manifest.json` |
 | Power measurement source and sample rate | Use an external meter at the Jetson power input as the primary whole-device measure when available; report onboard rail telemetry separately as diagnostic/cross-check |
-| Ambient test condition | Measure and record at each sustained run |
-| Available storage/network/input | Local MOT17 replay active; phone H.264/RTSP basic USB decode previously verified but further phone work deferred under D-33 |
+| Ambient test condition | 27°C air-conditioned room for the 8 October 2026 sustained diagnostic |
+| Available storage/network/input | Local MOT17 replay active; phone H.264/RTSP basic USB decode and current endpoint probe verified under D-28/D-39 |
 
 The actual device inventory above now controls this project. Preserve the working installed image; if a reflash becomes necessary, choose an officially supported release only after checking YOLOX/TensorRT dependencies. [NVIDIA JetPack downloads](https://developer.nvidia.com/embedded/jetpack/downloads), [JetPack archive](https://developer.nvidia.com/embedded/jetpack-archive), [Jetson Orin Nano modules](https://developer.nvidia.com/embedded/jetson-modules).
 
@@ -46,6 +46,26 @@ df -h
 
 If an optional package query is unavailable, record that rather than changing the system to make the query succeed. Capture `tegrastats` during an idle period and during the later sustained run; do not use a one-second sample as a complete energy measurement.
 
+### 2.1 Sustained FP32 detector diagnostic (8 October 2026)
+
+The private report at `race_mot/reports/2026-10-08-g3-sustained-fp32/` ran the
+FP32 TensorRT diagnostic engine against repeated `MOT17-02-FRCNN` prefixes for
+1,800 requested seconds and 1,801.026 observed seconds. It processed 34,180
+detector frames in every-frame mode; all outputs were finite and the median
+20-frame batch rate was 19.04 frames/s. `tegrastats` recorded 1,789 samples:
+
+| Quantity | Minimum | Median | Maximum |
+|---|---:|---:|---:|
+| `tj` temperature | 40.94°C | 46.59°C | 49.25°C |
+| RAM used | 2,981 MB | 3,732 MB | 4,393 MB of 7,485 MB |
+| `GR3D_FREQ` | 0% | 19% | 99% |
+| `VDD_IN` reported fields | 4.06 W | 6.135 W | 9.176 W |
+
+This is a detector and thermal diagnostic. It repeats the same local MOT17
+prefix, excludes ByteTrack and the product logger/dashboard, and has no
+external power meter. It therefore does not close G3 latency, tracking-quality,
+or whole-pipeline energy acceptance.
+
 ## 3. End-to-end timing boundary
 
 Primary latency is from frame arrival/read to emitted tracks and required status/log output. Record component timings as diagnostics: decode, preprocessing, detector, temporal features, predictor, policy, ByteTrack, rendering/export, and queueing. Report p50/p95, throughput, frame queue depth, dropped frames, and deadline misses against a deadline $D$ derived from the agreed input cadence.
@@ -67,9 +87,9 @@ Run long enough to reach sustained operating behavior, not just a short benchmar
 - One stream in the MVP. Multi-stream performance is out of scope.
 - Local inference by default; no cloud upload in the MVP.
 - Model files and logs have explicit storage paths and cleanup behavior.
-- The phone remains the eventual live demo source, but additional phone work is deferred under D-33. When resumed, keep it stationary, use the private local link, disable cloud relay, and specify reconnect, buffering, timestamp, and frame-drop semantics separately from MOT evaluation.
+- The phone remains the eventual live demo source. Keep it stationary, use the private local link, disable cloud relay, and specify reconnect, buffering, timestamp, and frame-drop semantics separately from MOT evaluation; the current D-39 probe does not close those acceptance items.
 - On device or runtime failure, stop safely, report the fault, and preserve only authorized summary diagnostics.
 
 ## 7. Device feasibility gate
 
-Bounded local evidence shows the FP32 detector and pinned ByteTrack can process MOT17 inputs; this is not a performance or quality claim. Phone acceptance remains deferred under D-33. Before the learned controller, resolve or explicitly defer the remaining G1/G2 issues, pass G4, then measure the detector-every-frame baseline and freeze its quality/service thresholds.
+Bounded local evidence shows the FP32 detector and pinned ByteTrack can process MOT17 inputs, and the 30-minute FP32 diagnostic remained below 49.25°C at the reported junction peak in the open benchtop setup. This is not a complete performance or quality claim. Phone acceptance has only bounded decode evidence under D-39. Before the learned controller, resolve or explicitly defer the remaining G1/G2 issues, pass G4, then measure the detector-plus-tracker every-frame baseline and freeze its quality/service thresholds.

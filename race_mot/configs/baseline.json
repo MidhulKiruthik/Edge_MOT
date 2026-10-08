@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "run": {
     "mode": "baseline",
     "seed": 0,
@@ -14,6 +15,7 @@
     "family": "yolox_tiny",
     "engine_path": null,
     "checkpoint_sha256": null,
+    "engine_sha256": null,
     "input_size": [416, 416],
     "precision": "fp32",
     "batch_size": 1
@@ -26,5 +28,20 @@
   "policy": {
     "threshold_tau": null,
     "max_consecutive_skips": null
+  },
+  "measurement": {
+    "boundary": "jetson_board_input",
+    "deadline_ms": 33.333333,
+    "warmup_frames": 5,
+    "repetitions": 2,
+    "limits_file": "configs/g3_limits.json",
+    "external_meter_required": true,
+    "telemetry_series": "diagnostic_only_without_external_meter"
+  },
+  "privacy": {
+    "raw_video_persistence": false,
+    "annotated_export": false,
+    "temporary_ids_only": true,
+    "face_processing": false
   }
 }

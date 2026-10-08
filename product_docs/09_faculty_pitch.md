@@ -3,7 +3,7 @@
 **Comprehensive Academic Project Proposal & Faculty Presentation Report**  
 **Document Type:** Formal Research Proposal, Technical Specification, and Presentation Pack  
 **Project Outcome:** A proposed local edge-computing prototype, with implementation and research results gated by feasibility and measurement evidence; peer-reviewed conference paper optional.
-**Target Hardware:** NVIDIA Jetson Orin Nano Engineering Reference Developer Kit Super with 7.6 GiB RAM, `p3768-0000+p3767-0005-super` compatibility, JetPack 7.2.1, CUDA 13.2, TensorRT 10.16.2, 25 W mode, and active fan telemetry recorded in private G1 inventory. Exact physical cooling and the final measurement boundary remain open.
+**Target Hardware:** NVIDIA Jetson Orin Nano Developer Kit, 8 GB class, P3766 module on P3768 carrier, Jetson Linux R39.2.1/TensorRT 10.16.2, 25 W mode, stock active cooling, open benchtop, and 27°C ambient as recorded under D-41. The external whole-device energy boundary remains the only G3 measurement gap.
 **Author / Presenter:** Midhul Kiruthik M .
 **Faculty / Department:** BalaMurugan .
 **Date / Version:** October 2026 | Revision v1.0 (Comprehensive Expansion)  
@@ -12,9 +12,13 @@
 - Product Documentation Pack: [product_docs/README.md](README.md)
 
 **Current execution status:** Local MOT17, FP32 detector/output decoding,
-OpenCV-reference parity, and pinned ByteTrack have bounded feasibility evidence.
-Acceptable recall, terms/roles, the baseline, and G4 remain open. Further phone
-work is temporarily deferred under D-33.
+OpenCV-reference parity, pinned ByteTrack API, and the deterministic local
+detector/tracker replay are evidenced under D-38, D-42, and D-48. The redacted
+phone endpoint probe and 30-minute FP32 thermal diagnostic remain separate
+evidence slices. The available-scene recall remains below the proposed
+acceptance threshold and is documented as an implementation waiver under
+D-43/D-46. D-47 records supervisor G4 sign-off and D-48 records Phase 4 local
+implementation; transient phone integration and the Phase 6 training-role dataset are evidenced under D-51 and D-50. Model fitting/calibration, adaptive scheduling, and the external-energy G3 closure remain later work.
 - Implementation Workspace: [race_mot/README.md](../race_mot/README.md)
 
 ---
@@ -25,7 +29,7 @@ Multi-Object Tracking (MOT) in edge computing requires simultaneously localizing
 
 **RACE-MOT (Risk-Calibrated Adaptive Compute for Edge Multi-Object Tracking)** proposes a product-first edge tracking system whose implementation and measurements remain to be completed. Its primary methodological claim is an online, per-track **counterfactual avoidable identity failure formulation ($Y_{g,t}^{(K,M)}$)**, predicting whether skipping the detector on the upcoming frame $t+1$ will cause an identity error that executing the detector would prevent. A candidate causal 1D Temporal Convolutional Network (TCN) processes causal kinematic, Kalman innovation, and association histories. Its parameter count, latency, calibration quality, and policy value will be measured after the model definition and device path are frozen. Frame-level aggregation is intended to guide a binary compute policy (`DETECT` vs. `SKIP`), backed by a low-cost scene-discovery guard.
 
-The proposed pipeline comprises RTSP video ingestion, candidate YOLOX-Tiny with a runtime precision pending the G1 compatibility decision, ByteTrack, a risk head, binary policy scheduling, decision logging, and a local web dashboard hosted on an NVIDIA Jetson Orin Nano. It is intended to receive live video from a stationary smartphone running IP Webcam over a private USB-tethered local link. Evaluation is planned on MOT17 with sequence-grouped roles and MOT20 as a locked crowd/generalization set. Complete-pipeline energy, when a suitable external Jetson-input meter is available, will be measured per input frame with onboard rail telemetry reported separately as a diagnostic.
+The proposed pipeline comprises RTSP video ingestion, YOLOX-Tiny TensorRT FP32 on the verified board path, ByteTrack, a risk head, binary policy scheduling, decision logging, and a local web dashboard hosted on an NVIDIA Jetson Orin Nano. The authorized phone path is now exercised transiently for the live demonstration under D-51; it is excluded from labeled benchmark claims. Evaluation remains on MOT17 with sequence-grouped roles and MOT20 as a locked crowd/generalization set. Complete-pipeline energy, when a suitable external Jetson-input meter is available, will be measured per input frame with onboard rail telemetry reported separately as a diagnostic.
 
 ---
 
@@ -335,7 +339,7 @@ To eliminate data snooping and ensure unbiased evaluation, datasets are strictly
 
 | Dataset / Input Stream | Scale & Characteristics | Dedicated Role | Leakage & Integrity Controls |
 |---|---|---|---|
-| **MOT17 Training Set** [3, 13] | 7 unique source video sequences (5,316 unique video frames; 112,297 ground-truth bounding boxes). Distributed across 21 subfolders corresponding to DPM, Faster R-CNN, and SDP detection files. | Model fitting, probability calibration, policy validation, and grouped evaluation roles selected before final scoring. | All detector variants of any source video remain in the same role. The exact grouped/cross-fitted allocation is TBD until G2, with no frame-level or tracklet-level random splitting. |
+| **MOT17 Training Set** [3, 13] | 7 unique source video sequences (5,316 unique video frames; 112,297 ground-truth bounding boxes). Distributed across 21 subfolders corresponding to DPM, Faster R-CNN, and SDP detection files. | Model fitting, probability calibration, policy validation, and grouped evaluation roles selected before final scoring. | All detector variants of any source video remain in the same role. The grouped allocation is recorded in `race_mot/data/roles.json` and approved (D-40/GC-01): training 02/04/05, calibration 09, policy validation 10, final evaluation 11/13, with Leave-One-Scene-Out grouped cross-validation as the documented fallback. No frame-level or tracklet-level random splitting. |
 | **MOT20 Training Set** [4, 14] | 4 extremely crowded sequences (8,931 frames, 1,336,920 annotations; average density of $149.7\text{ pedestrians/frame}$). | Frozen out-of-distribution dense-crowd stress and generalization test. | Kept strictly locked. Zero feature selection, threshold tuning, or calibration parameter fitting on MOT20. Evaluated post-freeze. |
 | **Live Smartphone RTSP Stream** | Authorized stationary smartphone feed over private USB tethering; 1280×720 at 15 FPS remains a proposed profile. Current G1 decode evidence observed 1920×1080 with backend cadence metadata deemed unreliable. | Hardware integration, live demonstration, and system fault-injection testing. | Unannotated. Explicitly designated as a demonstration vehicle; benchmark scores are never reported from this unannotated feed. |
 

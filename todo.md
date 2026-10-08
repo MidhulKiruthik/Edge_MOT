@@ -1,28 +1,30 @@
 # RACE-MOT End-to-End Implementation Roadmap
 
-**Purpose:** Convert the approved product and research design into a sequenced, evidence-gated implementation plan. This document plans the work; it does not claim that implementation or evaluation has happened.
+**Purpose:** Convert the approved product and research design into a sequenced, evidence-gated implementation plan. Completed items cite their implementation or measurement evidence; open items remain explicitly gated.
 
 **Project outcome:** A local, single-camera pedestrian-tracking prototype on the available Jetson Orin Nano, accompanied by a reproducible evaluation package. A conference paper is optional and depends on the resulting evidence.
 
-**Status on 8 October 2026:** Device inventory, carrier identity, active fan telemetry, USB-tethered H.264/RTSP decode, bounded MOT17 replay, FP32 YOLOX-Tiny execution/output decoding, ten-frame OpenCV-reference parity, and pinned ByteTrack operation on real detector outputs have feasibility evidence (D-23, D-26, D-28 through D-36). FP16 remains blocked by the TensorRT 10.16.2 builder assertion. A corrected 100-frame detector diagnostic matched only 25.43% of broadly filtered visible-person annotations, so acceptable recall remains open. MOT17 structure/grouping is recorded, but explicit terms and scene roles remain unresolved. Phone work is deferred under D-33. G4 pre-code approval has **not** been passed.
+**Status on 8 October 2026:** Device inventory, carrier identity, active fan telemetry, USB-tethered H.264/RTSP decode, full three-scene MOT17 replay, FP32 YOLOX-Tiny execution/output decoding, expanded OpenCV-reference parity, paired-rollout/label contracts, pinned ByteTrack feasibility, the deterministic local detector/tracker runtime, repeated baseline measurements, complete-pipeline sustained telemetry, official TrackEval 1.3.0 metrics, the audited Phase 6 training-role dataset, transient no-save phone integration, and a 30-minute FP32 thermal diagnostic have evidence (D-23, D-26, D-28 through D-51). D-47 records supervisor G4 sign-off, D-48 records Phase 4 implementation, D-49 records Phase 5 baseline measurement, D-50 records Phase 6 dataset generation, and D-51 records phone integration. The detector's measured three-scene recall is 52.43%, below the earlier 65% proposal, and is documented as an explicit acceptance waiver. G3 is partial only because external-meter energy is unavailable; adaptive policy remains gated.
 
 ## Current gate status and next actions
 
 | Gate | Current state | What closes it |
 |---|---|---|
 | G0 - Product definition | Accepted in the current product documents | Reopen only through a recorded scope decision |
-| G1 - Feasibility | Partially evidenced; device/carrier/fan telemetry, USB H.264/RTSP decode, MOT17 replay, FP32 person-output decoding/OpenCV parity, and pinned ByteTrack behavior are captured; FP16 remains blocked; further phone work is deferred by D-33 | Exact physical cooling record, acceptable detector recall, checkpoint terms, and explicit closure/deferment of FP16; phone interruption/reconnect requires later closure or supervisor-accepted deferral |
-| G2 - Data and responsible use | Partial private manifests exist; terms and role arrays remain unresolved | Confirm MOT17/underlying-sequence terms, approve grouped scene roles, and retain MOT20 for transfer only; phone-footage authorization is deferred with phone work |
-| G3 - Measurement contract | Open; no baseline or numeric acceptance limits | Same-device every-frame baseline, declared measurement boundary, and approved limits derived from baseline evidence |
-| G4 - Pre-code approval | Not passed | Required documents consistent, blockers resolved or explicitly deferred, verification mapped, and required sign-off recorded |
+| G1 - Feasibility | Substantially evidenced; device/cooling, three-scene MOT17 replay, FP32 decoding/parity, pinned ByteTrack feasibility, and machine-generated transient phone integration are recorded; FP16 is explicitly deferred | Use G3 for full quality/resource claims; the phone is not a labeled benchmark source |
+| G2 - Data and responsible use | Passed for local MOT17 implementation and transient phone processing; terms, grouped roles, MOT20 manifest, rollout protocol, paired-rollout contract, privacy boundary, and label audit fixture are recorded | Keep raw phone frames transient and excluded from training/calibration/evaluation labels |
+| G3 - Measurement contract | Partial; full baseline, official TrackEval metrics, sustained telemetry, and frozen limits are recorded under D-49, but external-meter energy is unavailable | Connect an external Jetson-input meter and approve the recorded final quality/energy limits |
+| G4 - Pre-code approval | Passed for deterministic Phase 4 and authorized transient phone integration | Required documents, verification map, acceptance matrix, supervisor sign-off, and D-51 phone evidence are recorded |
+
+**Implementation order update (D-38/D-39/D-47/D-48/D-50/D-51, 8 October 2026):** Supervisor sign-off authorized deterministic Phase 4 implementation, Phase 5 measurement is recorded, the frozen training-role Phase 6 dataset now has evidence, and transient phone integration is measured. External-meter G3 closure, model training, and adaptive scheduling remain gated. Keep MOT17 and derived labels local and unredistributed under D-35/D-40; keep phone frames transient and unlabeled under D-51.
 
 **Do next, in order:**
 
-1. Record the exact physical cooling assembly and checkpoint terms; preserve prior reports.
-2. Verify detector reference-runtime parity and investigate the low provisional MOT17 recall without tuning on final-evaluation data.
-3. Confirm MOT17 data terms and grouped scene roles, then finish the Phase 0 claim reconciliation. Leave phone work deferred under D-33.
+1. Connect an external meter at the Jetson input boundary and repeat the frozen baseline long enough to integrate Joules per input frame.
+2. Record the meter calibration/sampling boundary, synchronize it with the frame log, and accept or revise the frozen G3 limits.
+3. Keep phone frames transient and excluded from labels; do not enable adaptive scheduling until the external energy boundary and limits are accepted.
 
-These are feasibility and planning tasks. Full MVP implementation starts only after G4. Adaptive scheduling and energy-saving claims additionally wait for G3.
+Phases 0–6 are complete for the approved deterministic/local-data scope. Keep the frozen Phase 6 artifact unchanged while proceeding to Phase 7 model fitting/calibration; the adaptive scheduler remains gated by the external-energy G3 boundary and later validation phases.
 
 ## Approved MVP boundary
 
@@ -162,22 +164,22 @@ race-mot inspect-mot --gt /authorized/MOT17-02-FRCNN/gt/gt.txt
 
 #### Phase 5: measure baseline and close G3
 
-1. Warm up the Jetson, fix power mode/cooling/input cadence, and run the same MOT sequences in the same order for the planned repetitions. Record all environment settings in each manifest.
-2. Evaluate tracking with a pinned TrackEval path and report HOTA, DetA, AssA, IDF1, MOTA, ID switches, fragmentation, and detector diagnostics. Keep phone results as integration evidence, not benchmark evidence.
-3. Measure from frame arrival through emitted tracks and required log/UI status. Report component times, queue depth, p50/p95 latency, throughput, DMR, and input drops separately.
-4. Measure whole-pipeline energy at the declared input boundary using the external meter when available. Divide by every input frame, including frames where a later policy might skip detection. Store onboard telemetry as a separate diagnostic series.
-5. Run sustained tests long enough to reveal thermal behavior. Record peak RAM, temperature, clocks, throttling, warm-up, ambient, fan/cooling, and power mode.
-6. Derive `D`, quality margins, DMR/RAM/thermal limits, repetitions, and minimum useful energy reduction from this pilot and product cadence. Freeze them before policy validation.
+1. [x] Warm up the Jetson, fix 25 W/open-benchtop cooling and 30 FPS input cadence, and run MOT17-02/04/05 in the same order for two repetitions. Manifests record the detector/tracker/configuration and environment.
+2. [x] Evaluate the full local sequences at IoU 0.50 and visibility >=0.20. Official TrackEval 1.3.0 reports HOTA/DetA/AssA, IDF1, MOTA, ID switches, fragmentation, and detector counts; the dependency-free evaluator remains a cross-check.
+3. [x] Measure arrival-to-track pipeline latency, preprocessing, inference, postprocessing, coordinate mapping, queue depth, throughput, DMR, and source drops. Warm-up-excluded p50/p95 values are retained.
+4. [ ] Measure whole-pipeline energy at the Jetson input boundary with an external meter. Onboard VDD_IN is retained only as a diagnostic; no Joules/input-frame claim is made.
+5. [x] Run a 60-second complete detector/tracker sustained test with 60 telemetry samples; record RAM, junction temperature, GR3D utilization, onboard VDD_IN, power mode, cooling, and explicit unavailable throttling flags. The earlier 30-minute detector-only thermal record remains separate.
+6. [x] Freeze the 30 FPS deadline, warm-up/repetition protocol, quality margins, service limits, RAM/thermal limits, and 10% minimum useful-energy target in `configs/g3_limits.json`; official TrackEval is now recorded, while external-meter energy remains the open prerequisite for policy validation.
 
-**Phase output:** baseline report, raw timing/energy/telemetry traces, metric summary, repetition protocol, approved G3 limits, and updated requirements.
+**Phase output:** baseline report, raw timing/telemetry traces, official metric summary, repetition protocol, frozen G3 limits, and an explicit external-energy gap. The Phase 5 implementation is measured but G3 is not fully closed until the external meter is connected and the limits are accepted.
 
 #### Phase 6: generate paired learning data
 
-1. Run the frozen detector/tracker on the selected MOT17 sequences and save versioned anchor states, detections, tracker state, timestamps, and hashes.
-2. Generate paired rollouts only from eligible anchors. Serialize branch configuration and initial-state hash so a label can be reproduced without hidden runtime state.
-3. Run duplicate-frame, sequence-leakage, boundary-censor, and label-prevalence checks. Produce per-source-scene counts and an audit sample.
-4. Fit normalization/class weighting only on training roles. Preserve natural prevalence in calibration and policy-validation roles. Include varied prior skip histories as generated runtime states.
-5. Freeze detector-gap bins and keep source drops, frame subsampling, and policy skips as separate conditions.
+1. [x] Run the frozen detector/tracker on the selected MOT17 training-role sequences and save versioned anchor states, detections, tracker state, timestamps, and hashes.
+2. [x] Generate paired rollouts only from eligible anchors. Serialize branch configuration, unique anchor states, and initial-state hashes so labels are reproducible without hidden runtime state.
+3. [x] Run duplicate-frame, sequence-leakage, boundary-censor, and label-prevalence checks. Produce per-source-scene counts and a deterministic audit sample.
+4. [x] Fit training-only geometry normalization statistics and label class weights. Calibration and policy-validation roles remain untouched; varied prior skip histories are included as generated runtime states.
+5. [x] Freeze detector-gap bins (`0`, `1`, `2`, `3`) and keep source-frame subsampling, network/source drops, and policy skips as separate conditions; the generated local runs have zero source drops and no subsampling.
 
 **Phase output:** reproducible rollout dataset, label manifest, audit report, grouped roles, and leakage checks. No model selection on MOT20.
 
@@ -237,10 +239,10 @@ A phase is done only when its code (if any), tests, configuration, raw evidence,
 
 - [x] Record product-first outcome, one-camera/device boundary, candidate detector/tracker, two-action policy, and primary method claim in the decision log.
 - [x] Maintain the research report and faculty pitch as research framing and prior-art records.
-- [ ] Complete the pitch claim reconciliation above: mark each quantitative statement as `cited`, `measured`, or `TBD`; remove contradictions and unsupported outcome language.
-- [ ] Confirm the brief, requirements, architecture, data plan, hardware plan, privacy plan, verification plan, decision log, SDD, research report, and pitch agree on model, actions, datasets, device, outputs, and metrics.
-- [ ] Create a requirements-to-component-to-verification map. Every requirement needed for G4 must have a feasible acceptance case.
-- [ ] Record unresolved choices with an owner, due phase, and consequence if unresolved. Do not let a TBD silently become a default.
+- [x] Complete the pitch claim reconciliation above: quantitative statements are marked as cited context, measured bounded evidence, proposal targets, or `TBD`; unsupported outcome language is qualified (D-37).
+- [x] Confirm the brief, requirements, architecture, data plan, hardware plan, privacy plan, verification plan, decision log, SDD, research report, and pitch agree on model, actions, datasets, device, outputs, and metrics (D-37, D-39).
+- [x] Create a requirements-to-component-to-verification map in `product_docs/10_requirements_traceability.md` (D-21).
+- [x] Record unresolved choices with an owner, due phase, and consequence in the decision log. `TBD` values remain blocked until resolved.
 
 **Exit evidence:** One internally consistent scope, reconciled pitch, current decision log, and traceable requirements. The high-level scope is already agreed; this phase closes remaining contradictions and unsupported specifications.
 
@@ -248,78 +250,82 @@ A phase is done only when its code (if any), tests, configuration, raw evidence,
 
 The existing inventory and stream-probe utilities are scaffolding, not evidence. This limited feasibility work is the explicit pre-MVP exception; it is not permission to build the full application.
 
-- [ ] Device inventory is substantially recorded (D-23/D-24); exact physical cooling and sustained-run details remain open.
+- [x] Device inventory, exact physical cooling, open-benchtop setup, 27°C ambient, current 25W mode, and sustained FP32 thermal diagnostic are recorded (D-23/D-24/D-41). The detector-plus-tracker baseline is closed under D-49; whole-pipeline external energy remains open.
 - [x] Preserve the installed image for the initial feasibility check. No reflash or system OpenCV replacement was performed.
-- [ ] Phone USB/RTSP acceptance is deferred under D-33; basic USB H.264/RTSP decode evidence remains in D-28.
-- [ ] Phone cadence/drop/interruption/reconnect evidence is deferred under D-33.
+- [x] Current phone endpoint `http://10.152.75.6:8080/video` decoded without errors in a five-second no-save probe (D-39); prior USB H.264 evidence remains in D-28.
+- [x] Phone interruption/reconnect and trusted-LAN acceptance is measured for controlled client reconnect/private-route reachability under D-51; no physical cable/network fault is claimed.
 - [x] Decode an authorized local MOT17 sequence and verify bounded frame order/dimensions (D-31).
-- [x] Establish bounded YOLOX-Tiny FP32/OpenCV parity and pinned ByteTrack plausibility on the exact board (D-29 through D-36); acceptable recall and terms remain open.
-- [ ] Live-demo network exposure verification is deferred with phone work under D-33.
+- [x] Establish expanded YOLOX-Tiny FP32/OpenCV parity and pinned ByteTrack plausibility on the exact board (D-29 through D-36, D-42); the measured recall deviation and checkpoint candidate are accepted for implementation planning under D-43.
+- [x] Explicitly defer TensorRT FP16 after the builder failure; revisit only through an official compatible JetPack/TensorRT path (D-45).
+- [x] Restore and bounded-decode the planned MOT17-04 and MOT17-05 development scenes (D-44); three-scene detector recall is recorded under D-46.
+- [x] Live-demo network exposure and reconnect verification is user-attested under D-43; a dated machine-generated report remains recommended for audit.
 
 **Exit evidence (G1):** Device manifest, phone-stream and file-decode reports, candidate stack feasibility note, and any deferred issue recorded. Do not claim tracking quality, detector FPS, or energy savings at this gate.
 
 ## Phase 2 - G2: Approve data, privacy, and the failure-label protocol
 
-- [ ] Private MOT17 manifest exists, but explicit terms, the large archive checksum, permitted distribution, MOT20 manifest, and final sequence roles remain open.
+- [x] Private MOT17 manifest with official terms (CC BY-NC-SA 3.0), locally computed archive SHA-256 hashes, permitted-distribution record, and final grouped scene roles (D-40/GC-01, 8 October 2026).
+- [x] Create the MOT20 manifest and freeze the paired-rollout label protocol before any label generation or training (`data/mot20_manifest.json`, `data/rollout_protocol.json`, D-45).
 - [x] Record the grouping rule that all MOT17 detector variants of one source scene remain in the same role (D-35).
 - [x] Record MOT20 as locked held-out dense-crowd transfer evaluation; do not use it for fitting or selection.
-- [ ] Before label generation, freeze `alpha`, visibility/occlusion rules, `K`, `M`, sequence-boundary censoring, detector/tracker versions, tracker initialization, matching implementation, and branch semantics.
-- [ ] Implement paired offline rollouts from the same tracker state at frame `t`: one branch skips detection at `t+1`, the other detects at `t+1`; both then use detector-every-frame updates for the next `K-1` frames. All other settings are matched.
-- [ ] Use the research report's frozen target: `Y = F_skip * (1 - F_detect)`. A positive label means the skip branch has the defined identity failure within the horizon and the matched detect branch does not. Keep ineligible, ambiguous, and boundary-censored anchors out of the safe-negative class.
-- [ ] Write label pseudocode and manually audit examples for ordinary motion, crossings, occlusion, entries/exits, re-entry, and sequence boundaries. Report exclusions and event prevalence by source scene.
-- [ ] Create a local-footage authorization/consent decision before capturing people. Keep raw video transient by default, make annotated export opt-in, use temporary IDs only, and apply the documented retention/deletion policy.
-- [ ] Review local-network access, credential redaction, log allowlists, and the prohibition on face crops, appearance embeddings, and persistent identity.
+- [x] Before label generation, freeze `alpha`, visibility/occlusion rules, `K`, `M`, sequence-boundary censoring, detector/tracker versions, tracker initialization, matching implementation, and branch semantics (`data/rollout_protocol.json`, D-45).
+- [x] Implement the paired offline rollout contract from the same tracker state at frame `t`: one branch skips detection at `t+1`, the other detects at `t+1`; both then use detector-every-frame updates for the next `K-1` frames (`evaluation/paired_rollout.py`).
+- [x] Use the research report's frozen target: `Y = F_skip * (1 - F_detect)`. Positive, safe-negative, ineligible, and boundary-censored outcomes are represented by the protocol contract.
+- [x] Write label pseudocode and manually audit examples for ordinary motion, crossings, occlusion, entries/exits, re-entry, and sequence boundaries (`data/label_audit.json` and tests); report exclusions and prevalence in the fixture.
+- [x] Record the Phase 2 freeze boundary; D-51 later authorizes transient phone processing with no raw-frame retention. Local MOT17 remains private and unredistributed.
+- [x] Review and record local-network access, credential redaction, log allowlists, and the prohibition on face crops, appearance embeddings, and persistent identity in the Phase 2 freeze record.
 
 **Exit evidence (G2):** Data/footage permissions and handling record, sequence/split manifest, frozen label protocol, pseudocode, and audited examples. These are required before training or selecting a policy threshold.
 
 ## Phase 3 - G4: Close the full-MVP pre-code gate
 
-- [ ] Close G1 and G2, or record each explicit deferral, owner, risk, and supervisor acceptance in the decision log.
-- [ ] Complete requirement-to-component-to-verification traceability and agree which acceptance items are MVP blockers.
-- [ ] Confirm SDD contracts: frame packet and timestamps, detector output, tracker update versus skip, scheduler action/reason, run record, queue limits, restart, and error behavior.
-- [ ] Verify detector/checkpoint provenance and terms, TensorRT compatibility, ByteTrack source/license, and dependency pinning plan.
-- [ ] Approve the measurement boundary, metric definitions, repetition plan, and method for deriving quality margins, deadline, deadline-miss bound, memory/temperature limits, and minimum useful energy reduction after the every-frame pilot.
-- [ ] Reserve time for integration, target-device measurements, failure recovery, analysis, and demo preparation.
-- [ ] Obtain required student/supervisor G4 sign-off and save the dated checklist.
+- [x] Close G1 and G2, or record each explicit deferral, owner, risk, and supervisor acceptance in the decision log (D-43, D-45, D-47, D-51); phone integration is now evidenced for the transient demo scope.
+- [x] Complete requirement-to-component-to-verification traceability and agree which acceptance items are MVP blockers.
+- [x] Confirm SDD contracts: frame packet and timestamps, detector output, tracker update versus skip, scheduler action/reason, run record, queue limits, restart, and error behavior; runtime execution remains Phase 4 work.
+- [x] Verify detector/checkpoint provenance and terms, TensorRT compatibility, ByteTrack source/license, and dependency pinning plan; FP16 is explicitly deferred under D-45.
+- [x] Approve the measurement boundary, metric definitions, repetition plan, and method for deriving quality margins, deadline, deadline-miss bound, memory/temperature limits, and minimum useful energy reduction after the every-frame pilot.
+- [x] Reserve time for integration, target-device measurements, failure recovery, analysis, and demo preparation.
+- [x] Obtain formal dated student/supervisor G4 sign-off; recorded under D-47.
 
-**Gate:** Start full MVP implementation only after G4 is signed. The G1 inventory/input feasibility spike is the limited exception. Do not implement the adaptive scheduler or claim a useful compute policy until the every-frame baseline closes G3.
+**Gate:** G4 is signed for deterministic Phase 4 implementation. The bounded tracker/runtime slice is complete under D-48; do not enable training or the adaptive scheduler until their G2/G3 requirements are met, and do not claim a useful compute policy until full every-frame measurement closes G3.
 
 ## Phase 4 - Build the deterministic, every-frame runtime
 
-- [ ] Implement source adapters for MOT files and the verified phone stream. Preserve source index, source timestamp, monotonic arrival time, and known input drops as separate fields.
-- [ ] Add config validation, run ID/manifest, clean start/stop/restart, bounded queues, redacted logs, and visible source/decode failure handling.
-- [ ] Freeze one detector checkpoint, preprocessing/coordinate mapping, batch size, and reference runtime. Convert to TensorRT FP16 only if supported; compare outputs with the reference path using declared tolerances.
-- [ ] Pin ByteTrack source/version and parameters. Test initialization, `update([])` when detection ran but found no person, and `skip()` when detection did not run. Verify lifecycle and time advancement over detector skips and source timestamp gaps.
-- [ ] Add frame-stage timing and separately track elapsed seconds since detector, source frames since detector, consecutive policy skips, and source-input drops.
-- [ ] Replay a short file and phone stream in detector-every-frame mode; verify output records and graceful failure/stop before adding adaptation.
+- [x] Implement and replay-verify the local MOT image-sequence source adapter; preserve one-based frame indices, timestamps, and visible decode failures (D-38).
+- [x] Keep raw phone persistence disabled while retaining source index/drop semantics in the adapter; D-51 records the transient live run.
+- [x] Add config validation, run ID/manifest, clean start/stop/restart, bounded queue metadata, redacted logs, and visible source/detector failure handling (D-48).
+- [x] Freeze the FP32 detector checkpoint, preprocessing/coordinate mapping, batch size, and OpenCV reference fixture. FP16 remains deferred under D-45 (D-42, D-48).
+- [x] Pin the ByteTrack API/version and parameters; test initialization, `update([])`, `skip()`, reset, and stable IDs (D-48).
+- [x] Add frame-stage timing and retain source timestamp, arrival clock, detector action, and input-drop fields (D-48).
+- [x] Replay the three restored development scenes in detector-every-frame mode; repeat `MOT17-02-FRCNN` for hash equality, and pass failure/restart tests (D-48).
 
-**Exit evidence:** Repeatable local file replay and phone ingest; fixed detector/tracker outputs; run manifest and logs; clean failure/stop behavior. No adaptive policy yet.
+**Exit evidence:** Repeatable local file replay, fixed FP32 detector/tracker outputs, golden reference fixture, immutable manifest, redacted frame log, summary hashes, clean failure/stop/restart behavior, and the separate D-51 phone integration record. No adaptive policy is enabled.
 
 ## Phase 5 - Measure the every-frame baseline and close G3
 
-- [ ] Run the frozen detector + ByteTrack on every input frame on the physical Orin Nano: repeatable MOT files first, then the phone feed for integration.
-- [ ] Add the minimum local dashboard only after the core path works: source/run health, overlay, temporary IDs, active-track count as an occupancy proxy, action/status, latency, and errors. Bind only to the trusted LAN.
-- [ ] Compute HOTA, DetA/AssA, IDF1, MOTA, ID switches, fragmentation, and detector recall/AP diagnostics using a pinned TrackEval/evaluation path.
-- [ ] Measure end-to-end latency from frame arrival/read through emitted tracks and required product status/log output. Record component times, queue depth, drops, p50/p95, sustained throughput, and DMR.
-- [ ] Measure complete-pipeline energy at a declared Jetson input boundary with an external meter as the primary measure when available. Include decode, preprocessing, detector, tracker, predictor, policy, guard/context if enabled, and product-required UI/logging. Divide by every input frame, including frames where detection is skipped.
-- [ ] Keep onboard rail telemetry separate from whole-device meter readings. If no suitable external meter exists, mark whole-pipeline Joules/input-frame unavailable; do not present onboard telemetry as an exact substitute.
-- [ ] Record peak RAM, temperature, clocks, power mode, fan/cooling, ambient condition, warm-up, run duration, and throttling during sustained operation. A brief `tegrastats` sample is not a sustained thermal result.
-- [ ] Derive and freeze `D`, HOTA/IDF1 non-inferiority margins, maximum DMR, RAM/thermal limits, minimum useful energy reduction, sustained-run duration, and guard discovery/false-trigger criteria. Justify each using the product cadence, baseline variation, and user need; do not choose limits after seeing final test results.
+- [x] Run the frozen detector + ByteTrack on every input frame on the physical Orin Nano: two full repetitions of MOT17-02/04/05 ran in frozen order, and D-51 records a separate 100-frame phone integration pass. Phone frames are not benchmark labels.
+- [x] Add the minimum local replay dashboard after the core path: source/run health, temporary-track geometry overlay, temporary IDs, active-track count, action/status, latency, queue/drop state, and errors. It binds to loopback by default; a trusted-LAN bind is explicit and authorized.
+- [x] Compute HOTA, DetA/AssA, IDF1, MOTA, ID switches, fragmentation, and detector diagnostics using pinned official TrackEval 1.3.0; the dependency-free evaluator remains a cross-check.
+- [x] Measure end-to-end latency from frame arrival/read through emitted tracks and required product log output. Component times, queue depth, drops, p50/p95, sustained throughput, and DMR are recorded.
+- [ ] Measure complete-pipeline energy at a declared Jetson input boundary with an external meter as the primary measure. The run records the unavailable state and does not claim Joules/input-frame.
+- [x] Keep onboard rail telemetry separate from whole-device meter readings. The report labels VDD_IN as diagnostic only while the external meter is unavailable.
+- [x] Record peak RAM, temperature, clocks, power mode, fan/cooling, ambient condition, warm-up, run duration, and throttling availability during sustained operation. The 60-second complete-pipeline run and earlier 30-minute detector-only thermal record are separate.
+- [x] Derive and freeze `D`, HOTA/IDF1 non-inferiority margins, maximum DMR, RAM/thermal limits, minimum useful energy reduction, and sustained-run duration in `configs/g3_limits.json`; guard discovery/false-trigger criteria remain Phase 9 work.
 
-**Exit evidence (G3):** Frozen every-frame baseline configs/results, declared measurement boundary, repeat protocol, and approved numeric acceptance limits with rationale. Risk-policy optimization depends on this gate.
+**Exit evidence (G3):** Frozen every-frame baseline configs/results, declared measurement boundary, repeat protocol, official metric summary, sustained telemetry, and frozen numeric limits are recorded under D-49. G3 remains partial only for the external-energy measurement; risk-policy optimization depends on closing that boundary.
 
 ## Phase 6 - Build and audit the paired-rollout learning dataset
 
-- [ ] Run the fixed detector/tracker over selected MOT17 source sequences; preserve outputs, annotations, timestamps, configs, hashes, and software versions.
-- [ ] Generate the paired skip/detect rollouts from identical anchor state according to the frozen `K`, `M`, `alpha`, visibility/matching rules, and future schedule.
-- [ ] Implement the avoidable-failure label. Censor ambiguous or ineligible anchors instead of silently labelling them as safe.
-- [ ] Include varied prior detector-skip histories in training rollouts to reduce mismatch between training and adaptive runtime states.
-- [ ] Compare generated labels to hand-reviewed examples. Report positive prevalence, exclusions, per-scene counts, duplicate-frame checks, and scene-leakage checks.
-- [ ] Freeze sequence-grouped training, calibration, policy-validation, and final evaluation roles. With only seven MOT17 source scenes, use grouped/cross-fitted roles if a fixed split is unstable; never use random frame or tracklet splits.
-- [ ] Fit normalization and any class weighting/mining on training data only. Preserve natural event prevalence for calibration.
-- [ ] Freeze detector-gap bins before held-out scoring. Keep source-frame subsampling, network/source drops, and policy detector skips as separate conditions.
+- [x] Run the fixed detector/tracker over selected MOT17 training-role source sequences; preserve outputs, annotations, timestamps, configs, hashes, and software versions.
+- [x] Generate the paired skip/detect rollouts from identical anchor state according to the frozen `K=5`, `M=2`, IoU `0.50`, visibility `0.20`, and future-frame schedule.
+- [x] Implement the avoidable-failure label. Boundary, no-visible-observation, and other ambiguous anchors are censored instead of silently labelled safe.
+- [x] Include varied prior detector-skip histories (`1`, `2`, and `3` previous skips) in sampled training-role rollout states.
+- [x] Compare generated labels to the frozen hand-audit protocol fixture. Report positive prevalence, exclusions, per-scene counts, duplicate-frame checks, and sequence-leakage checks.
+- [x] Freeze sequence-grouped training, calibration, policy-validation, and final-evaluation roles from `data/roles.json`; only the training role is generated in this phase and no random frame/tracklet split is used.
+- [x] Fit geometry normalization and label class weights on training data only. Preserve calibration and policy-validation natural prevalence by generating no labels for those roles.
+- [x] Freeze detector-gap bins before held-out scoring. Source-frame subsampling, network/source drops, and policy detector skips remain separate fields.
 
-**Exit evidence:** Reproducible data/label manifest, audited rollout implementation, sequence-role manifest, and proof that test labels were not used for model or policy selection.
+**Exit evidence:** Reproducible data/label manifest, unique serialized anchor states, audited rollout implementation, sequence-role manifest, training-only statistics, and an explicit proof that test labels were not used for model or policy selection are recorded in `product_docs/18_phase_6_dataset_record.md`.
 
 ## Phase 7 - Train and calibrate the temporal risk predictor
 

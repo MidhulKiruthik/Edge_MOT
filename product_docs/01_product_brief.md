@@ -1,6 +1,6 @@
 # RACE-MOT Product Brief
 
-**Status:** Updated 8 October 2026 — product direction agreed; bounded device, MOT17, FP32 detector, reference-parity, and ByteTrack feasibility evidence exists, while the full baseline and G4 approval remain open.
+**Status:** Updated 8 October 2026 — product direction agreed; bounded device, three-scene MOT17, expanded FP32 detector/reference-parity, paired-rollout contracts, ByteTrack API, deterministic local replay evidence, full Phase 5 baseline metrics, sustained telemetry, audited Phase 6 training-role dataset, and transient phone integration exist. D-47 records supervisor G4 sign-off, D-48 records Phase 4 implementation, D-49 records official TrackEval measurement, D-50 records the dataset, and D-51 records the phone path; G3 is partial only because external-meter energy is unavailable.
 **Product type:** Local edge-computing prototype.  
 **Primary outcome:** A demonstrable software prototype; conference publication is optional and evidence-dependent.
 
@@ -10,7 +10,7 @@ RACE-MOT is a local video analytics prototype that detects and tracks pedestrian
 
 The MVP does not identify people across cameras or sessions. Track IDs are temporary algorithmic labels within a video sequence; they are not names or biometric identities.
 
-Current execution is local-MOT17-first. Further phone-camera work is temporarily deferred under D-33 without removing the eventual controlled phone demo from the MVP.
+Current execution is local-MOT17-first for repeatable metrics, with transient live phone integration measured under D-51. The phone endpoint has no-save decode, FP32/tracker, controlled reconnect, and private-route evidence; it remains excluded from labeled benchmark claims.
 
 ## 2. Intended user and job
 
@@ -69,4 +69,4 @@ The prototype is successful only if it completes an authorized video run, output
 - Limited MOT17 sequence count can make model selection and confidence estimates unstable.
 - The selected device may not support the expected model/runtime or power measurements.
 
-See the decision log for the remaining device-inventory, phone-stream, model/license, data-authorization, and baseline gates before adaptive implementation.
+See the decision log for the remaining external-energy and adaptive-policy gates. Device/input, model, data, Phase 4, Phase 5, Phase 6, and transient phone integration evidence are recorded under D-40 through D-51.

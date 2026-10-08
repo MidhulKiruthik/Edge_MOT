@@ -1,6 +1,6 @@
 # RACE-MOT Product-First Pre-Code Documentation Pack
 
-**Status:** Draft v0.2 — updated with bounded G1 feasibility evidence; no full baseline, adaptive-policy result, or product acceptance is claimed.
+**Status:** Draft v0.4 — updated with deterministic Phase 4 local-replay, Phase 5 measurement, Phase 6 training-role dataset, and transient phone live-integration evidence; no adaptive-policy result or G3 external-energy acceptance is claimed.
 **Date:** 8 October 2026
 **Purpose:** Define the product prototype, its boundaries, evidence plan, and acceptance gates before coding begins.
 
@@ -8,7 +8,7 @@
 
 The working MVP is a **local, single-camera pedestrian-tracking prototype** running on the available Jetson Orin Nano. A stationary mobile phone running IP Webcam supplies the live H.264/RTSP demo feed over a private USB-tethered local link; recorded MOT17/MOT20 files provide repeatable evaluation. The system detects and tracks people with anonymous short-lived IDs, displays tracks and an active-track count (an occupancy proxy), and records compute decisions and device measurements. It is an academic prototype, not a validated people-counting or production surveillance system.
 
-The student/faculty demo workflow and eventual phone-to-Jetson direction remain agreed. The target board/software, local MOT17 replay, TensorRT FP32 detector path, bounded reference parity, and pinned ByteTrack runtime have feasibility evidence. Acceptable detector recall, checkpoint/data terms, grouped role assignments, the deterministic baseline, and G4 approval remain open. Further phone work is temporarily deferred under D-33.
+The student/faculty demo workflow and phone-to-Jetson direction remain agreed. The target board/software, three-scene local MOT17 replay, TensorRT FP32 detector path, bounded reference parity, paired-rollout contracts, pinned ByteTrack API, deterministic local replay runtime, full Phase 5 baseline with official TrackEval metrics, sustained telemetry, the audited Phase 6 training-role dataset, and the transient phone integration checks have evidence. D-47 records supervisor G4 sign-off, D-48 records the local Phase 4 implementation with a documented detector recall waiver, D-49 records Phase 5 measurement, D-50 records the Phase 6 dataset, and D-51 records live phone integration; G3 is partial only because external-meter energy is unavailable.
 
 ## Read these documents in order
 
@@ -23,6 +23,11 @@ The student/faculty demo workflow and eventual phone-to-Jetson direction remain 
 9. [Faculty pitch](09_faculty_pitch.md) — concise research framing, prior art, gap, objectives, and proposed method for supervisor discussion.
 10. [Software Design Document](../race_mot/SDD.md) — implementation structure, data/API contracts, run artifacts, runtime behavior, and development order.
 11. [Requirements traceability](10_requirements_traceability.md) — requirement owners, verification cases, expected results, and retained evidence.
+12. [Phase 4 implementation record](16_phase_4_implementation_record.md) — deterministic local replay runtime, hashes, tests, and remaining G3 limits.
+13. [Phase 5 baseline record](17_phase_5_baseline_record.md) — full local baseline metrics, latency, telemetry, frozen limits, and remaining measurement gaps.
+14. [Phase 6 dataset record](18_phase_6_dataset_record.md) — training-role paired rollouts, serialized anchor states, label audits, grouped-role protection, and training-only statistics.
+15. [Phone live integration record](19_phone_live_integration_record.md) — no-save decode, FP32/tracker pass, controlled reconnect, and private-route evidence.
+16. [Phase 0–6 completion status](20_phase_0_to_6_completion_status.md) — current phase-by-phase closure and remaining post-Phase-6 boundaries.
 
 ## Project source of truth
 
@@ -46,4 +51,4 @@ Each document is a living draft. Record the date and reason for changes in [the 
 
 ## Current readiness
 
-**Not ready to start adaptive-policy implementation.** Bounded local feasibility exists, but acceptable detector recall, checkpoint and dataset terms, scene-role assignments, exact physical cooling documentation, and the detector-every-frame baseline remain open. Phone acceptance work is deferred under D-33. Set quality, deadline, and energy thresholds only after the baseline; do not report planned results as measured results.
+**Not ready to start adaptive-policy implementation.** D-47 authorizes deterministic Phase 4 implementation, D-48 records the bounded local replay, D-49 records the repeated full-sequence baseline, official TrackEval metrics, sustained telemetry, and frozen service limits, D-50 records the training-role dataset, and D-51 records the transient phone integration path. The detector recall deviation is explicitly recorded. External-meter energy and final G3 limit acceptance remain open. Set thresholds from the repeated baseline measurement protocol; do not report planned results as measured results.

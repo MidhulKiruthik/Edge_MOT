@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "status": "frozen_measurement_limits_external_energy_pending",
+  "basis": "2026-10-08 full MOT17-02/04/05 detector-every-frame pilot, two repetitions, 30 FPS source cadence, five warm-up frames excluded from steady-state summaries",
+  "source_order": ["MOT17-02-FRCNN", "MOT17-04-FRCNN", "MOT17-05-FRCNN"],
+  "repetitions": 2,
+  "warmup_frames": 5,
+  "deadline_ms": 33.333333,
+  "quality": {
+    "iou_threshold": 0.5,
+    "visibility_min": 0.2,
+    "adaptive_hota_noninferiority_margin_absolute": 0.02,
+    "adaptive_idf1_noninferiority_margin_absolute": 0.02,
+    "note": "Margins are frozen for later policy comparison; official TrackEval 1.3.0 is the authoritative metric record and the dependency-free evaluator is retained as a reproducible cross-check."
+  },
+  "service": {
+    "p95_latency_ms_max": 55.0,
+    "deadline_miss_rate_max": 0.55,
+    "queue_depth_max": 1,
+    "source_input_drops_max": 0
+  },
+  "device": {
+    "ram_used_mb_max": 4096,
+    "junction_temperature_c_max": 55.0,
+    "power_mode": "25W",
+    "cooling": "stock active heatsink/fan, open benchtop",
+    "ambient_celsius": 27.0
+  },
+  "energy": {
+    "minimum_useful_reduction_fraction": 0.10,
+    "boundary": "jetson_board_input",
+    "external_meter_required": true,
+    "status": "unavailable_until_external_meter_is_connected"
+  }
+}

@@ -1,5 +1,6 @@
 # Python environments and caches
 .venv/
+.venv-trackeval/
 .venv-g1/
 venv/
 __pycache__/
@@ -21,6 +22,8 @@ logs/
 !.env.example
 *.pem
 *.key
+private_docs/
+WhatsApp Image *.jpeg
 
 # Editor and operating-system files
 .vscode/

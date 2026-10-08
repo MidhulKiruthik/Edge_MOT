@@ -1,6 +1,6 @@
 # RACE-MOT Data, Labels, and Model Plan
 
-**Status:** Draft v0.2, updated 8 October 2026 — local MOT17 archives and source-scene grouping are recorded in private manifests; explicit terms and exact role assignments remain unresolved before training.
+**Status:** Draft v0.3, updated 8 October 2026 — local MOT17 archives, CC BY-NC-SA 3.0 terms, source-scene grouping, roles, frozen rollout/label protocol, and the audited training-role paired-rollout dataset are recorded in private manifests. Model training and calibration remain Phase 7 work; no calibration, policy-validation, final-evaluation, phone, or MOT20 labels were generated.
 **Purpose:** Prevent leakage and ensure the model is trained on the same event the product policy is meant to manage.
 
 ## 1. Data roles
